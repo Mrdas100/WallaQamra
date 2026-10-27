@@ -128,7 +128,7 @@ export async function ensureGoogleClass(businessName: string): Promise<void> {
   } else if (get.ok) {
     await gapi("PATCH", `/loyaltyClass/${id}`, buildGoogleClass(businessName));
   } else {
-    throw new Error(`Google class get ${get.status}`);
+    throw new Error(`Google class get ${get.status}: ${(await get.text()).slice(0, 300)}`);
   }
   classEnsured = true;
 }
