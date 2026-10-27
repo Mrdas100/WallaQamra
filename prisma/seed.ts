@@ -14,7 +14,7 @@ async function main() {
       slug,
       name: process.env.BUSINESS_NAME || "شاهي قمرا",
       // بطاقة أختام: 5 أكواب والسادس مجاناً
-      settings: { create: { programMode: "STAMPS", stampsPerReward: 5, minStampAmountHalalas: 300 } },
+      settings: { create: { programMode: "STAMPS", stampsPerReward: 5, minStampAmountHalalas: 600 } },
     },
   });
 
@@ -38,10 +38,29 @@ async function main() {
   if ((await prisma.reward.count({ where: { businessId: business.id } })) === 0) {
     await prisma.reward.createMany({
       data: [
-        { businessId: business.id, name: "كوب مجاني", description: "السادس علينا بعد 5 أكواب", cost: 5, unit: "STAMP", sortOrder: 1 },
+        { businessId: business.id, name: "كوب مجاني", description: "أي مشروب ساخن حتى 8 ريال، أو ادفع الفرق", cost: 5, unit: "STAMP", sortOrder: 1 },
+        { businessId: business.id, name: "ابريق شاهي مجاني", description: "ابريق شاهي بأي نوع", cost: 10, unit: "STAMP", sortOrder: 2 },
+        { businessId: business.id, name: "خلية أو بانكيك مجاني", description: "أي صنف من قسم خلية النحل", cost: 15, unit: "STAMP", sortOrder: 3 },
+        { businessId: business.id, name: "بوكس شاهي 1 لتر مجاني", description: "Qamra Tea Box للطلبات الخارجية", cost: 20, unit: "STAMP", sortOrder: 4 },
       ],
     });
     console.log("Created default rewards");
+  }
+  if ((await prisma.campaign.count({ where: { businessId: business.id } })) === 0) {
+    // ساعة قمرا: أختام مضاعفة الأحد-الأربعاء 3-6 العصر، موقوفة حتى يفعّلها المالك
+    await prisma.campaign.create({
+      data: {
+        businessId: business.id,
+        name: "ساعة قمرا: أختام مضاعفة",
+        multiplierPct: 200,
+        startsAt: new Date(),
+        endsAt: new Date(Date.now() + 90 * 86_400_000),
+        startMinute: 900,
+        endMinute: 1080,
+        daysMask: 15,
+        active: false,
+      },
+    });
   }
   console.log(`Business ready: ${business.name} (${business.slug})`);
 }

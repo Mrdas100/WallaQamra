@@ -211,7 +211,7 @@ function EarnForm({ customer, busy, run, onDone }: { customer: CustomerView; bus
             </div>
           </div>
         )}
-        <p className="muted small">{stamps ? "ختم لكل كوب. النظام يتحقق أن قيمة الطلب تغطي عدد الأكواب." : "النقاط تُحسب تلقائياً من المبلغ."}</p>
+        <p className="muted small">{stamps ? "ختم لكل كوب مشروب. الإبريق = 2، والبوكس 1 لتر = 3. الأكل والمقرمشات بدون أختام." : "النقاط تُحسب تلقائياً من المبلغ."}</p>
         <button className="btn-block" disabled={busy}>إضافة</button>
       </form>
     </section>
