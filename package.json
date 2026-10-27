@@ -1,0 +1,49 @@
+{
+  "name": "shahi-qamra-loyalty",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.18"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start -p ${PORT:-3000}",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "cron": "tsx scripts/cron.ts",
+    "postinstall": "prisma generate",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "jsqr": "^1.4.0",
+    "next": "^16.4.3",
+    "passkit-generator": "^3.7.0",
+    "prisma": "^6.19.3",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "typescript": "5.9",
+    "vitest": "^3.2.7"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

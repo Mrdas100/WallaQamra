@@ -1,0 +1,6 @@
+#!/bin/sh
+# لا commit قبل نجاح: lint + typecheck + tests + build
+npm run check || {
+  echo "npm run check فشل — تم إلغاء الـ commit" >&2
+  exit 1
+}

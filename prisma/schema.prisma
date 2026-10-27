@@ -1,0 +1,467 @@
+// نموذج بيانات تطبيق ولاء شاهي قمرا.
+// كل الجداول تحمل businessId للتوسع لعدة محلات لاحقاً.
+// الرصيد غير مخزّن: يُحسب دائماً من مجموع LedgerEntry (للإضافة فقط، محمي بـ trigger).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CASHIER
+  MANAGER
+  ADMIN
+}
+
+enum Platform {
+  APPLE
+  GOOGLE
+}
+
+enum ProgramMode {
+  POINTS
+  STAMPS
+}
+
+enum Unit {
+  POINT
+  STAMP
+}
+
+enum Tier {
+  BRONZE
+  SILVER
+  GOLD
+}
+
+enum LedgerType {
+  EARN
+  REDEEM
+  REFUND_REVERSAL
+  MANUAL_ADJUST
+  CORRECTION
+  SIGNUP_BONUS
+  BIRTHDAY_BONUS
+  REFERRAL_BONUS
+  EXPIRY
+}
+
+enum OrderStatus {
+  COMPLETED
+  REFUNDED
+}
+
+enum SyncKind {
+  PASS_UPDATE
+  OFFER
+  NOTICE
+}
+
+enum SyncStatus {
+  PENDING
+  DONE
+  DEAD
+}
+
+enum AlertType {
+  FREQUENT_SAME_CUSTOMER
+  CONSECUTIVE_REDEMPTIONS
+  OFF_HOURS
+  REDEEM_LOCKOUT
+  MANUAL_LIMIT_REACHED
+  LOGIN_LOCKOUT
+}
+
+model Business {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  timezone  String   @default("Asia/Riyadh")
+  createdAt DateTime @default(now())
+
+  settings  Settings?
+  customers Customer[]
+  staff     Staff[]
+}
+
+model Settings {
+  businessId String   @id
+  business   Business @relation(fields: [businessId], references: [id])
+
+  programMode           ProgramMode @default(POINTS)
+  pointsPerSar          Int         @default(1) // نسبة النقاط: نقاط لكل ريال
+  rewardThreshold       Int         @default(100) // حد المكافأة الافتراضي المعروض على البطاقة
+  stampsPerReward       Int         @default(8)
+  minStampAmountHalalas Int         @default(1000)
+  maxOrderAmountHalalas Int         @default(100000)
+
+  // منع التلاعب
+  dailyMaxEarnTxns             Int @default(3)
+  dailyMaxEarnPoints           Int @default(500)
+  cooldownSeconds              Int @default(300)
+  manualMaxPerShift            Int @default(5)
+  manualMaxPointsPerShift      Int @default(200)
+  shiftHours                   Int @default(8)
+  openMinute                   Int @default(420) // 07:00 بتوقيت المحل
+  closeMinute                  Int @default(120) // 02:00 (بعد منتصف الليل)
+  alertSameCustomerCount       Int @default(3)
+  alertSameCustomerWindowHours Int @default(24)
+  alertRedemptionsCount        Int @default(2)
+  alertRedemptionsWindowHours  Int @default(24)
+  redeemMaxAttempts            Int @default(3)
+  redeemLockBaseMinutes        Int @default(5)
+
+  // المستويات (تُحسب من إنفاق العميل بالريال خلال آخر 365 يوماً)
+  silverSpendSar      Int @default(300)
+  goldSpendSar        Int @default(1000)
+  silverMultiplierPct Int @default(110)
+  goldMultiplierPct   Int @default(125)
+
+  // الصلاحية والمكافآت
+  pointsExpiryDays       Int @default(365) // 0 = لا تنتهي
+  expiryWarningDays      Int @default(14)
+  signupBonus            Int @default(20)
+  birthdayBonus          Int @default(50)
+  referralBonusReferrer  Int @default(30)
+  referralBonusReferee   Int @default(30)
+  referralMonthlyCap     Int @default(5)
+
+  // الرسائل
+  promoWeeklyCap    Int       @default(2)
+  quietStartMinute  Int       @default(1380) // 23:00
+  quietEndMinute    Int       @default(480) // 08:00
+  offerMessage      String    @default("")
+  offerUpdatedAt    DateTime?
+
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+  name          String
+  phone         String // E.164
+  birthMonth    Int?
+  birthDay      Int?
+  referralCode  String   @unique
+  referredById  String?
+  referredBy    Customer?  @relation("Referral", fields: [referredById], references: [id])
+  referrals     Customer[] @relation("Referral")
+  promoOptOut   Boolean  @default(false)
+  cardKeyNonce  String
+  regDeviceHash String?
+  regIpHash     String?
+  createdAt     DateTime @default(now())
+
+  passes      WalletPass[]
+  ledger      LedgerEntry[]
+  orders      Order[]
+  redemptions Redemption[]
+
+  @@unique([businessId, phone])
+  @@index([businessId, createdAt])
+}
+
+model WalletPass {
+  id               String   @id @default(cuid())
+  businessId       String
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id])
+  platform         Platform
+  serial           String   @unique
+  authToken        String
+  qrIssuedAt       DateTime?
+  contentUpdatedAt DateTime @default(now())
+  offerText        String   @default("")
+  offerNotify      Boolean  @default(false)
+  noticeText       String   @default("")
+  createdAt        DateTime @default(now())
+
+  devices  DeviceRegistration[]
+  syncJobs WalletSyncJob[]
+
+  @@unique([customerId, platform])
+  @@index([businessId, platform])
+}
+
+model DeviceRegistration {
+  id              String     @id @default(cuid())
+  businessId      String
+  walletPassId    String
+  walletPass      WalletPass @relation(fields: [walletPassId], references: [id], onDelete: Cascade)
+  deviceLibraryId String
+  pushToken       String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([deviceLibraryId, walletPassId])
+  @@index([walletPassId])
+}
+
+model LedgerEntry {
+  id              String     @id @default(cuid())
+  businessId      String
+  customerId      String
+  customer        Customer   @relation(fields: [customerId], references: [id])
+  type            LedgerType
+  unit            Unit
+  points          Int // موجب للإضافة وسالب للخصم
+  orderId         String?
+  order           Order?     @relation(fields: [orderId], references: [id])
+  redemptionId    String?
+  reversesEntryId String?    @unique
+  reason          String?
+  staffId         String?
+  staff           Staff?     @relation(fields: [staffId], references: [id])
+  deviceId        String?
+  ip              String?
+  userAgent       String?
+  idempotencyKey  String
+  expiresAt       DateTime?
+  createdAt       DateTime   @default(now())
+
+  @@unique([businessId, idempotencyKey])
+  @@index([customerId, createdAt])
+  @@index([businessId, createdAt])
+  @@index([staffId, createdAt])
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  businessId     String
+  customerId     String
+  customer       Customer    @relation(fields: [customerId], references: [id])
+  externalRef    String
+  amountHalalas  Int
+  status         OrderStatus @default(COMPLETED)
+  staffId        String
+  staff          Staff       @relation("OrderStaff", fields: [staffId], references: [id])
+  deviceId       String?
+  ip             String?
+  userAgent      String?
+  idempotencyKey String
+  refundedAt     DateTime?
+  refundedById   String?
+  createdAt      DateTime    @default(now())
+
+  entries LedgerEntry[]
+
+  @@unique([businessId, externalRef])
+  @@unique([businessId, idempotencyKey])
+  @@index([businessId, createdAt])
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  description String   @default("")
+  cost        Int
+  unit        Unit     @default(POINT)
+  minTier     Tier     @default(BRONZE)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  redemptions Redemption[]
+
+  @@index([businessId, active])
+}
+
+model Redemption {
+  id             String   @id @default(cuid())
+  businessId     String
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  rewardId       String
+  reward         Reward   @relation(fields: [rewardId], references: [id])
+  cost           Int
+  unit           Unit
+  staffId        String
+  deviceId       String?
+  ip             String?
+  userAgent      String?
+  idempotencyKey String
+  createdAt      DateTime @default(now())
+
+  @@unique([businessId, idempotencyKey])
+  @@index([customerId, createdAt])
+}
+
+model RedeemCode {
+  id         String    @id @default(cuid())
+  businessId String
+  customerId String
+  codeHash   String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+model RedeemGuard {
+  customerId  String    @id
+  businessId  String
+  failedCount Int       @default(0)
+  lockLevel   Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+model Staff {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id])
+  username     String
+  name         String
+  passwordHash String
+  role         Role     @default(CASHIER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions StaffSession[]
+  entries  LedgerEntry[]
+  orders   Order[]        @relation("OrderStaff")
+
+  @@unique([businessId, username])
+}
+
+model StaffSession {
+  id        String    @id @default(cuid())
+  staffId   String
+  staff     Staff     @relation(fields: [staffId], references: [id])
+  tokenHash String    @unique
+  deviceId  String?
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model LoginThrottle {
+  key         String    @id
+  failures    Int       @default(0)
+  lockLevel   Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String
+  staffId    String?
+  action     String
+  entity     String
+  entityId   String?
+  before     Json?
+  after      Json?
+  deviceId   String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
+
+model FraudAlert {
+  id               String    @id @default(cuid())
+  businessId       String
+  type             AlertType
+  staffId          String?
+  customerId       String?
+  details          Json
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  createdAt        DateTime  @default(now())
+
+  @@index([businessId, acknowledgedAt, createdAt])
+}
+
+model WalletSyncJob {
+  id           String     @id @default(cuid())
+  businessId   String
+  walletPassId String
+  walletPass   WalletPass @relation(fields: [walletPassId], references: [id], onDelete: Cascade)
+  kind         SyncKind   @default(PASS_UPDATE)
+  status       SyncStatus @default(PENDING)
+  payload      Json?
+  attempts     Int        @default(0)
+  nextRunAt    DateTime   @default(now())
+  lastError    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([status, nextRunAt])
+  @@index([walletPassId, status])
+}
+
+model BranchLocation {
+  id           String   @id @default(cuid())
+  businessId   String
+  name         String
+  latitude     Float
+  longitude    Float
+  relevantText String
+  maxDistance  Int      @default(100)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([businessId, active])
+}
+
+model Campaign {
+  id            String   @id @default(cuid())
+  businessId    String
+  name          String
+  multiplierPct Int      @default(200)
+  startsAt      DateTime
+  endsAt        DateTime
+  startMinute   Int? // نافذة يومية اختيارية (مثلاً ساعات الهدوء)
+  endMinute     Int?
+  daysMask      Int      @default(127) // الأحد=1، الاثنين=2، ... السبت=64
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  @@index([businessId, active])
+}
+
+model PromoDelivery {
+  id           String   @id @default(cuid())
+  businessId   String
+  customerId   String
+  walletPassId String
+  message      String
+  createdAt    DateTime @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+model ExpiryNotice {
+  id         String   @id @default(cuid())
+  businessId String
+  customerId String
+  periodKey  String
+  points     Int
+  createdAt  DateTime @default(now())
+
+  @@unique([customerId, periodKey])
+}
