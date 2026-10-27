@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { api, newKey } from "@/ui/api";
+import { api, ApiError, newKey } from "@/ui/api";
 import Scanner from "@/ui/scanner";
 
 interface CustomerView {
@@ -16,11 +16,12 @@ interface CustomerView {
 
 type Msg = { type: "ok" | "error" | "warn"; text: string } | null;
 
-export default function CashierApp({ staffName, role }: { staffName: string; role: string }) {
+export default function CashierApp({ staffName, role, signupQr }: { staffName: string; role: string; signupQr: string }) {
   const [customer, setCustomer] = useState<CustomerView | null>(null);
   const [phone, setPhone] = useState("");
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
   const isManager = role === "MANAGER" || role === "ADMIN";
 
   const run = async <T,>(fn: () => Promise<T>): Promise<T | null> => {
@@ -37,8 +38,22 @@ export default function CashierApp({ staffName, role }: { staffName: string; rol
   };
 
   const lookup = useCallback(async (body: { qr?: string; phone?: string }) => {
-    const c = await run(() => api<CustomerView>("/api/cashier/lookup", { body }));
-    if (c) setCustomer(c);
+    setBusy(true);
+    setMsg(null);
+    try {
+      setCustomer(await api<CustomerView>("/api/cashier/lookup", { body }));
+      setShowSignup(false);
+    } catch (e) {
+      // رقم غير مسجل: نعرض رمز التسجيل ليمسحه العميل بجواله
+      if (body.phone && e instanceof ApiError && e.code === "NOT_FOUND") {
+        setShowSignup(true);
+        setMsg({ type: "warn", text: "الرقم غير مسجل. خلّ العميل يمسح الرمز بجواله ويسجّل، ثم ابحث برقمه مرة ثانية." });
+      } else {
+        setMsg({ type: "error", text: (e as Error).message });
+      }
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
   /** إعادة تحميل بيانات العميل بعد كل عملية (الرصيد والمكافآت المتاحة) */
@@ -86,6 +101,19 @@ export default function CashierApp({ staffName, role }: { staffName: string; rol
               <button disabled={busy || phone.length < 9}>بحث</button>
             </div>
           </form>
+          {showSignup ? (
+            <div className="stack">
+              <h3>تسجيل عميل جديد</h3>
+              <div className="signup-qr" dangerouslySetInnerHTML={{ __html: signupQr }} />
+              <p className="muted small">يمسح العميل الرمز بكاميرا جواله، يسجّل اسمه ورقمه، ويضيف البطاقة إلى محفظته.</p>
+              <div className="row">
+                <button className="btn-ghost btn-sm" onClick={() => setShowSignup(false)}>إخفاء</button>
+                <a href="/signup-qr" target="_blank">نسخة للطباعة</a>
+              </div>
+            </div>
+          ) : (
+            <button className="btn-ghost" onClick={() => setShowSignup(true)}>عميل جديد؟ اعرض رمز التسجيل</button>
+          )}
         </section>
       ) : (
         <>

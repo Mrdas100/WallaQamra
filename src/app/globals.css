@@ -149,3 +149,14 @@ th { color: var(--muted); font-weight: 600; }
 details > summary { cursor: pointer; font-weight: 600; min-height: 32px; }
 details[open] > summary { margin-bottom: 10px; }
 input.checkbox { width: 20px; min-height: 20px; height: 20px; }
+
+/* رمز تسجيل العملاء */
+.signup-qr, .poster-qr { background: #fff; padding: 12px; border-radius: 12px; margin-inline: auto; }
+.signup-qr { width: min(240px, 70vw); }
+.poster-qr { width: min(360px, 80vw); }
+.signup-qr svg, .poster-qr svg { display: block; width: 100%; height: auto; }
+.poster { text-align: center; align-items: center; }
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+}

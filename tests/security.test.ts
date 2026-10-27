@@ -102,3 +102,12 @@ describe("Rate limiting", () => {
     for (let i = 1; i <= 3; i++) expect(await hit(key, 60)).toBe(i);
   });
 });
+
+describe("رمز تسجيل العملاء", () => {
+  it("يشير إلى الصفحة الرئيسية للموقع ولا يحوي بيانات عميل", async () => {
+    const { signupUrl, signupQrSvg } = await import("@/modules/signup");
+    expect(signupUrl()).toBe("https://loyalty.test/");
+    const svg = await signupQrSvg();
+    expect(svg.startsWith("<svg")).toBe(true);
+  });
+});

@@ -53,6 +53,7 @@ export default function AdminApp({ staffName, role, staffId }: { staffName: stri
             {staffName} ({ROLE_LABEL[role]})
           </span>
           <a href="/cashier">الكاشير</a>
+          <a href="/signup-qr">رمز تسجيل العملاء</a>
           <button className="btn-ghost btn-sm" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); location.href = "/login"; }}>
             خروج
           </button>
