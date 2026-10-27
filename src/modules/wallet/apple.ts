@@ -80,7 +80,7 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
             {
               key: "balance",
               label: unitLabel(m.unit),
-              value: `${Math.min(m.balance, m.nextRewardCost)}/${m.nextRewardCost}`,
+              value: `${Math.max(0, Math.min(m.balance, m.nextRewardCost))}/${m.nextRewardCost}`,
               changeMessage: `أختامك الآن %@`,
             },
           ],

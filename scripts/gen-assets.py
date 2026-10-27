@@ -2,7 +2,7 @@
 
 الاستخدام: python3 scripts/gen-assets.py
 - wallet-assets/apple: icon / logo / strip (لوضع النقاط)
-- public/stamps/{N}-{k}@{s}x.png: شريط الأختام (N أكواب، k منها مختومة، والأخير مجاني)
+- public/stamps/{N}-{k}@{s}x.png (375×144 مقاس Apple storeCard): شريط الأختام (N أكواب، k منها مختومة، والأخير مجاني)
 - public: icon-192 / google-logo / card-hero
 """
 
@@ -96,42 +96,61 @@ def star(d, cx, cy, r, color):
     d.polygon(pts, fill=color)
 
 
+_CUPS = {}
+
+
+def cup_img(state, px):
+    key = (state, px)
+    if key not in _CUPS:
+        _CUPS[key] = photo_cup(state, size=max(64, px // SS)).resize((px, px), Image.LANCZOS)
+    return _CUPS[key]
+
+
 def stamp_strip(n, k, w, h):
-    """شريط بطاقة الأختام: n كوب، المختوم منها k، والخانة الأخيرة هي الكوب المجاني"""
+    """شريط بطاقة الأختام (Apple storeCard 375×144): n كوب، المختوم منها k، والخانة الأخيرة هي الكوب المجاني.
+    هامش أفقي آمن حتى لا يقص الجوال أطراف الأكواب."""
     W, H = w * SS, h * SS
     img = gradient(W, H, BURGUNDY_LIGHT, BURGUNDY_DARK)
-    # زخرفة خفيفة: هلال كبير شفاف في الزاوية
     d = ImageDraw.Draw(img)
+    # خط ذهبي رفيع أعلى وأسفل الشريط
+    GOLD = (210, 173, 98)
+    d.line([(0, H * 0.02), (W, H * 0.02)], fill=mix(GOLD, BURGUNDY, 0.55), width=max(1, SS))
+    d.line([(0, H * 0.98), (W, H * 0.98)], fill=mix(GOLD, BURGUNDY, 0.55), width=max(1, SS))
 
     slots = n + 1
     rows = 1 if slots <= 7 else 2
     per_row = math.ceil(slots / rows)
-    gap = W * 0.022
-    max_d = H * (0.62 if rows == 1 else 0.40)
-    dia = min(max_d, (W * 0.90 - gap * (per_row - 1)) / per_row)
-    vgap = H * 0.06
-    lw = max(2, int(dia * 0.045))
-    # الاتجاه من اليمين لليسار (عربي): الختم الأول في أقصى اليمين، والمجاني آخر خانة
+    safe = W * 0.88
+    gap = W * 0.018
+    max_d = H * (0.66 if rows == 1 else 0.42)
+    dia = min(max_d, (safe - gap * (per_row - 1)) / per_row)
+    vgap = H * 0.05
+    ring = max(2, int(dia * 0.035))
     for i in range(slots):
         r, col = divmod(i, per_row)
         in_row = per_row if r < rows - 1 else slots - per_row * (rows - 1)
         total = dia * in_row + gap * (in_row - 1)
         x0 = (W - total) / 2
         cy = H / 2 + (r - (rows - 1) / 2) * (dia + vgap)
+        # من اليمين لليسار: الختم الأول يمين، والمجاني آخر خانة يسار
         cx = W - (x0 + dia / 2 + col * (dia + gap))
         box = [cx - dia / 2, cy - dia / 2, cx + dia / 2, cy + dia / 2]
-        gh = dia * 0.52
-        if i == n:  # الكوب المجاني
-            d.ellipse(box, fill=TAN)
-            draw_glass(d, cx, cy - dia * 0.02, gh, BURGUNDY, tea=None, outline=BURGUNDY)
-            star(d, cx + dia * 0.27, cy - dia * 0.27, dia * 0.12, BEIGE_LIGHT)
-        elif i < k:  # مختوم
-            d.ellipse(box, fill=BEIGE)
-            draw_glass(d, cx, cy - dia * 0.02, gh, BEIGE_LIGHT, tea=TEA, outline=BURGUNDY)
-        else:  # فارغ
-            d.ellipse(box, outline=mix(BEIGE, BURGUNDY, 0.45), width=lw)
-            faint = mix(BEIGE, BURGUNDY, 0.72)
-            draw_glass(d, cx, cy - dia * 0.02, gh, faint, outline=faint)
+        if i == n:
+            d.ellipse(box, fill=mix(GOLD, BURGUNDY_DARK, 0.15), outline=(240, 214, 150), width=ring)
+            state = "reward"
+        elif i < k:
+            d.ellipse(box, fill=mix(BURGUNDY_LIGHT, GOLD, 0.18), outline=GOLD, width=ring)
+            state = "filled"
+        else:
+            d.ellipse(box, fill=mix(BURGUNDY, BURGUNDY_DARK, 0.4), outline=mix(BEIGE, BURGUNDY, 0.55), width=ring)
+            state = "empty"
+        cpx = int(dia * 0.84)
+        cup = cup_img(state, cpx)
+        if state == "empty":
+            alpha = cup.getchannel("A").point(lambda v: int(v * 0.55))
+            cup = cup.copy()
+            cup.putalpha(alpha)
+        img.alpha_composite(cup, (int(cx - cpx / 2), int(cy - cpx / 2 - dia * 0.02)))
     return finish(img, w, h)
 
 
@@ -296,12 +315,12 @@ def main():
     for s in (1, 2, 3):
         suffix = "" if s == 1 else f"@{s}x"
         save(logo(50 * s, 50 * s), *apple, f"logo{suffix}.png")
-        save(points_strip(375 * s, 123 * s), *apple, f"strip{suffix}.png")
+        save(points_strip(375 * s, 144 * s), *apple, f"strip{suffix}.png")
 
     for n in range(3, 11):
         for k in range(n + 1):
             for s in (1, 2, 3):
-                save(stamp_strip(n, k, 375 * s, 123 * s), "public", "stamps", f"{n}-{k}@{s}x.png")
+                save(stamp_strip(n, k, 375 * s, 144 * s), "public", "stamps", f"{n}-{k}@{s}x.png")
 
     for state in ("empty", "filled", "reward"):
         photo_cup(state).save(os.path.join(ROOT, "public", "library", f"photo-{state}.png"), optimize=True)
