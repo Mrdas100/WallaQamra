@@ -168,7 +168,7 @@ export async function syncGooglePass(pass: WalletPass, opts: { message: string |
     return;
   }
   const id = encodeURIComponent(objectId(pass.serial));
-  const body: Record<string, unknown> = { ...buildGoogleObject(model), notifyPreference: "NOTIFY" };
+  const body: Record<string, unknown> = { ...buildGoogleObject(model), notifyPreference: "NOTIFY_ON_UPDATE" };
   if (opts.message) body.messages = []; // نُبقي رسالة واحدة حديثة فقط (الحد 10)
   const res = await gapi("PATCH", `/loyaltyObject/${id}`, body);
   if (res.status === 404) return; // العميل لم يحفظ البطاقة بعد
