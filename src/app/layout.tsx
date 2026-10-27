@@ -11,6 +11,10 @@ import "@fontsource/reem-kufi/500.css";
 import "@fontsource/reem-kufi/700.css";
 import "@fontsource/amiri/400.css";
 import "@fontsource/amiri/700.css";
+// خط بنغالي لشاشة الكاشير (يُحمَّل فقط عند ظهور حروف بنغالية بفضل unicode-range)
+import "@fontsource/noto-sans-bengali/400.css";
+import "@fontsource/noto-sans-bengali/600.css";
+import "@fontsource/noto-sans-bengali/700.css";
 import "./globals.css";
 import "./card.css";
 

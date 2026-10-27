@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CashierText } from "@/ui/i18n/cashier";
 
 type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string }[]> };
 
@@ -8,10 +9,10 @@ type Detector = { detect: (src: CanvasImageSource) => Promise<{ rawValue: string
  * ماسح QR خفيف: يستخدم BarcodeDetector المدمج في المتصفح إن وُجد، وإلا jsQR (يُحمَّل عند الحاجة فقط).
  * يدعم أيضاً أجهزة المسح USB/Bluetooth التي تكتب النص في الحقل.
  */
-export default function Scanner({ onResult }: { onResult: (text: string) => void }) {
+export default function Scanner({ onResult, t }: { onResult: (text: string) => void; t: CashierText }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [active, setActive] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(false);
   const [manual, setManual] = useState("");
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function Scanner({ onResult }: { onResult: (text: string) => void
         };
         loop();
       } catch {
-        setError("تعذر تشغيل الكاميرا. استخدم البحث بالجوال أو جهاز المسح.");
+        setError(true);
         setActive(false);
       }
     })();
@@ -72,11 +73,11 @@ export default function Scanner({ onResult }: { onResult: (text: string) => void
       {active ? (
         <>
           <video ref={videoRef} className="video" playsInline muted />
-          <button className="btn-ghost btn-block" onClick={() => setActive(false)}>إيقاف الكاميرا</button>
+          <button className="btn-ghost btn-block" onClick={() => setActive(false)}>{t.stopCamera}</button>
         </>
       ) : (
-        <button className="btn-gold btn-block" onClick={() => { setError(""); setActive(true); }}>
-          مسح QR البطاقة بالكاميرا
+        <button className="btn-gold btn-block" onClick={() => { setError(false); setActive(true); }}>
+          {t.scanCamera}
         </button>
       )}
       <form
@@ -86,10 +87,10 @@ export default function Scanner({ onResult }: { onResult: (text: string) => void
           setManual("");
         }}
       >
-        <label htmlFor="scan">أو جهاز المسح (يكتب الرمز هنا)</label>
+        <label htmlFor="scan">{t.scannerDevice}</label>
         <input id="scan" className="ltr" autoComplete="off" value={manual} onChange={(e) => setManual(e.target.value)} />
       </form>
-      {error && <div className="alert alert-warn">{error}</div>}
+      {error && <div className="alert alert-warn">{t.cameraError}</div>}
     </div>
   );
 }
