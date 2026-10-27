@@ -174,6 +174,110 @@ def circle_logo(size):
     return finish(img, size, size)
 
 
+def cup_halfwidth(t, h):
+    """نصف عرض الاستكانة عند الارتفاع t (0 أعلى، 1 أسفل): واسعة فوق، ضيقة في الخصر، متوسطة تحت"""
+    top, waist, bot = 0.31 * h, 0.20 * h, 0.26 * h
+    tw = 0.58
+    if t <= tw:
+        u = t / tw
+        return top + (waist - top) * (1 - math.cos(u * math.pi)) / 2
+    u = (t - tw) / (1 - tw)
+    return waist + (bot - waist) * (1 - math.cos(u * math.pi)) / 2
+
+
+def cup_polygon(cx, top, h, steps=80):
+    left, right = [], []
+    for i in range(steps + 1):
+        t = i / steps
+        y = top + t * h
+        w = cup_halfwidth(t, h)
+        left.append((cx - w, y))
+        right.append((cx + w, y))
+    return left + right[::-1]
+
+
+def vgrad_layer(W, H, y0, y1, c0, c1, a0=255, a1=255):
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    for y in range(int(y0), int(y1) + 1):
+        t = (y - y0) / max(1, y1 - y0)
+        c = mix(c0, c1, t)
+        d.line([(0, y), (W, y)], fill=c + (round(a0 + (a1 - a0) * t),))
+    return layer
+
+
+def photo_cup(state, size=256):
+    """استكانة شاهي واقعية على صحن (PNG شفاف) بثلاث حالات: empty / filled / reward"""
+    W = size * SS
+    img = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    GOLD, GOLD_D = (214, 176, 98), (160, 120, 52)
+    cx, top, h = W * 0.5, W * 0.17, W * 0.60
+
+    # ظل الصحن
+    sh = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).ellipse([W * 0.16, W * 0.80, W * 0.84, W * 0.90], fill=(30, 12, 8, 90))
+    img = Image.alpha_composite(img, sh.filter(ImageFilter.GaussianBlur(W * 0.02)))
+
+    # الصحن
+    d = ImageDraw.Draw(img)
+    sy = top + h
+    d.ellipse([W * 0.13, sy - W * 0.045, W * 0.87, sy + W * 0.075], fill=(238, 228, 214, 255))
+    d.ellipse([W * 0.15, sy - W * 0.035, W * 0.85, sy + W * 0.055], fill=(250, 245, 238, 255))
+    d.ellipse([W * 0.13, sy - W * 0.045, W * 0.87, sy + W * 0.075], outline=GOLD if state != "empty" else (205, 190, 170), width=int(W * (0.012 if state == "reward" else 0.007)))
+
+    poly = cup_polygon(cx, top, h)
+    mask = Image.new("L", (W, W), 0)
+    ImageDraw.Draw(mask).polygon(poly, fill=255)
+
+    # جسم الزجاج: شفافية خفيفة
+    body = Image.new("RGBA", (W, W), (255, 255, 255, 0))
+    body.paste(Image.new("RGBA", (W, W), (255, 252, 246, 70)), (0, 0), mask)
+    img = Image.alpha_composite(img, body)
+
+    if state != "empty":
+        level = top + h * 0.16
+        tea = vgrad_layer(W, W, level, top + h, (196, 86, 40), (104, 28, 14), 235, 250)
+        m = mask.copy()
+        ImageDraw.Draw(m).rectangle([0, 0, W, level], fill=0)
+        layer = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+        layer.paste(tea, (0, 0), m)
+        img = Image.alpha_composite(img, layer)
+        # سطح الشاهي
+        w = cup_halfwidth(0.16, h)
+        surf = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+        ImageDraw.Draw(surf).ellipse([cx - w * 0.98, level - W * 0.018, cx + w * 0.98, level + W * 0.018], fill=(222, 136, 78, 240))
+        img = Image.alpha_composite(img, surf)
+
+    # انعكاسات الضوء على الزجاج
+    hl = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    hd = ImageDraw.Draw(hl)
+    for i in range(10, 70):
+        t = i / 80
+        w = cup_halfwidth(t, h)
+        y = top + t * h
+        hd.ellipse([cx - w * 0.78 - W * 0.012, y - W * 0.012, cx - w * 0.78 + W * 0.012, y + W * 0.012], fill=(255, 255, 255, 120))
+    hl = hl.filter(ImageFilter.GaussianBlur(W * 0.006))
+    img = Image.alpha_composite(img, hl)
+
+    # حافة الزجاج والإطار
+    edge = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    ed = ImageDraw.Draw(edge)
+    ed.line(poly[: len(poly) // 2], fill=(150, 130, 120, 170), width=int(W * 0.007))
+    ed.line(poly[len(poly) // 2 :], fill=(150, 130, 120, 170), width=int(W * 0.007))
+    tw = cup_halfwidth(0, h)
+    ed.ellipse([cx - tw, top - W * 0.022, cx + tw, top + W * 0.022], outline=GOLD if state != "empty" else (190, 175, 160), width=int(W * 0.010))
+    if state != "empty":
+        ed.ellipse([cx - tw, top - W * 0.022 + W * 0.012, cx + tw, top + W * 0.022 + W * 0.012], outline=GOLD_D, width=int(W * 0.004))
+    img = Image.alpha_composite(img, edge)
+
+    if state == "reward":
+        d = ImageDraw.Draw(img)
+        star(d, W * 0.80, W * 0.17, W * 0.10, GOLD)
+        star(d, W * 0.80, W * 0.17, W * 0.045, (255, 244, 214))
+        star(d, W * 0.20, W * 0.30, W * 0.045, GOLD)
+    return finish(img, size, size)
+
+
 def save(img, *parts):
     path = os.path.join(ROOT, *parts)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -185,6 +289,7 @@ def save(img, *parts):
 
 
 def main():
+    os.makedirs(os.path.join(ROOT, "public", "library"), exist_ok=True)
     apple = ("wallet-assets", "apple")
     for s, px in ((1, 29), (2, 58), (3, 87)):
         save(icon(px), *apple, f"icon{'' if s == 1 else f'@{s}x'}.png")
@@ -197,6 +302,9 @@ def main():
         for k in range(n + 1):
             for s in (1, 2, 3):
                 save(stamp_strip(n, k, 375 * s, 123 * s), "public", "stamps", f"{n}-{k}@{s}x.png")
+
+    for state in ("empty", "filled", "reward"):
+        photo_cup(state).save(os.path.join(ROOT, "public", "library", f"photo-{state}.png"), optimize=True)
 
     save(icon(192), "public", "icon-192.png")
     save(circle_logo(660), "public", "google-logo.png")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/ui/api";
 import { MONTHS } from "@/ui/labels";
 
@@ -15,36 +15,11 @@ interface Props {
 
 export default function CardClient({ id, cardKey, promoOptOut, hasBirthday, referralUrl, referralCode }: Props) {
   const headers = { "x-card-key": cardKey };
-  const [qr, setQr] = useState<string>("");
-  const [code, setCode] = useState<{ code: string; expiresAt: number } | null>(null);
+    const [code, setCode] = useState<{ code: string; expiresAt: number } | null>(null);
   const [left, setLeft] = useState(0);
   const [optOut, setOptOut] = useState(promoOptOut);
   const [bday, setBday] = useState({ m: "", d: "", saved: hasBirthday });
   const [msg, setMsg] = useState<{ type: "ok" | "error"; text: string } | null>(null);
-
-  const loadQr = useCallback(async () => {
-    try {
-      const r = await api<{ svg: string; refreshInSeconds: number }>(`/api/card/${id}/qr`, { headers: { "x-card-key": cardKey } });
-      setQr(r.svg);
-      return r.refreshInSeconds;
-    } catch {
-      return 30;
-    }
-  }, [id, cardKey]);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    let alive = true;
-    const tick = async () => {
-      const next = await loadQr();
-      if (alive) timer = setTimeout(tick, next * 1000);
-    };
-    tick();
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [loadQr]);
 
   useEffect(() => {
     if (!code) return;
@@ -82,12 +57,6 @@ export default function CardClient({ id, cardKey, promoOptOut, hasBirthday, refe
 
   return (
     <>
-      <section className="panel stack">
-        <h2>امسح عند الكاشير</h2>
-        <div className="qr" aria-label="رمز QR للبطاقة" dangerouslySetInnerHTML={{ __html: qr }} />
-        <p className="muted small">الرمز يتجدد تلقائياً ولا يحتوي رقم جوالك.</p>
-      </section>
-
       <section className="panel stack">
         <h2>استبدال مكافأة</h2>
         {code ? (

@@ -1,6 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+// خطوط عربية مرخّصة (SIL OFL) تُخدم من نفس الموقع، فلا نحتاج اتصالاً خارجياً ولا تغيير CSP
+import "@fontsource/ibm-plex-sans-arabic/400.css";
+import "@fontsource/ibm-plex-sans-arabic/500.css";
+import "@fontsource/ibm-plex-sans-arabic/700.css";
+import "@fontsource/tajawal/500.css";
+import "@fontsource/tajawal/700.css";
+import "@fontsource/tajawal/800.css";
+import "@fontsource/reem-kufi/500.css";
+import "@fontsource/reem-kufi/700.css";
+import "@fontsource/amiri/400.css";
+import "@fontsource/amiri/700.css";
 import "./globals.css";
+import "./card.css";
 
 export const metadata: Metadata = {
   title: "شاهي قمرا — بطاقة الولاء",

@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -7,8 +8,9 @@ import { getBalance } from "@/modules/ledger";
 import { TIER_LABEL, tierAtLeast, unitForMode } from "@/modules/rules";
 import { LEDGER_LABEL } from "@/ui/labels";
 import { fmtServerDate } from "@/ui/format";
-import { stampStripFile } from "@/modules/wallet/stamps";
+import { getPublishedDesign } from "@/modules/design/service";
 import CardClient from "./card-client";
+import CardLive from "./card-live";
 
 export const metadata = { title: "بطاقتي — شاهي قمرا" };
 
@@ -27,7 +29,7 @@ export default async function CardPage({
   const settings = await getSettings(customer.businessId);
   const unit = unitForMode(settings.programMode);
   const word = unit === "STAMP" ? "ختم" : "نقطة";
-  const [balance, tier, rewards, entries, expiring] = await Promise.all([
+  const [balance, tier, rewards, entries, expiring, design] = await Promise.all([
     getBalance(customer.id, unit),
     customerTier(customer.id, settings),
     prisma.reward.findMany({
@@ -40,46 +42,31 @@ export default async function CardPage({
       orderBy: { expiresAt: "asc" },
       select: { expiresAt: true },
     }),
+    getPublishedDesign(customer.businessId),
   ]);
   const goal = unit === "STAMP" ? settings.stampsPerReward : settings.rewardThreshold;
-  const strip = unit === "STAMP" ? stampStripFile(goal, balance, 2) : null;
   const key = cardKey(customer);
+  const nonce = (await headers()).get("x-nonce") ?? "";
+  const first = rewards[0];
   const devWallet = env.apple.devMode || env.google.devMode;
 
   return (
     <main className="wrap stack">
-      <div className="brandbar">
-        <img src="/icon-192.png" alt="" />
-        <h1>شاهي قمرا</h1>
-      </div>
-
-      <div className="card">
-        <div className="top">
-          <span className="name">{customer.name}</span>
-          <span className="tier">{TIER_LABEL[tier]}</span>
-        </div>
-        {strip ? (
-          <img className="stamps" src={`/stamps/${strip}`} alt={`${Math.min(balance, goal)} من ${goal} أكواب`} />
-        ) : (
-          <>
-            <span className="moon" />
-            <div className="balance">
-              {balance}
-              <small>{word}</small>
-            </div>
-          </>
-        )}
-        <div>
-          {!strip && <progress max={goal} value={Math.min(balance, goal)} aria-label="التقدم نحو المكافأة" />}
-          <div className="small">
-            {balance >= goal
-              ? "لديك مكافأة متاحة 🎉"
-              : unit === "STAMP"
-                ? `${balance} من ${goal} — باقي ${goal - balance} وكوبك مجاني`
-                : `باقي ${goal - balance} ${word} للمكافأة القادمة`}
-          </div>
-        </div>
-      </div>
+      <CardLive
+        id={customer.id}
+        cardKey={key}
+        nonce={nonce}
+        design={design}
+        data={{
+          name: customer.name,
+          tierLabel: TIER_LABEL[tier],
+          mode: settings.programMode,
+          balance,
+          goal,
+          unitWord: word,
+          reward: first ? { name: first.name, description: first.description, cost: first.cost } : null,
+        }}
+      />
 
       <section className="panel stack">
         <h2>أضف البطاقة إلى جوالك</h2>

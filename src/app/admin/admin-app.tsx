@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, fmtDate } from "@/ui/api";
 import { ALERT_LABEL, LEDGER_LABEL, ROLE_LABEL, TIER_LABEL } from "@/ui/labels";
+import DesignEditor from "./design-editor";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = Record<string, any>;
@@ -12,6 +13,7 @@ const TABS = [
   { id: "alerts", label: "تنبيهات التلاعب", admin: false },
   { id: "customers", label: "العملاء", admin: false },
   { id: "ledger", label: "الحركات", admin: false },
+  { id: "design", label: "تصميم بطاقة الولاء", admin: true },
   { id: "rewards", label: "المكافآت", admin: true },
   { id: "campaigns", label: "الحملات", admin: true },
   { id: "locations", label: "الفروع والمواقع", admin: true },
@@ -38,7 +40,7 @@ function useLoad<T>(path: string | null) {
   return { ...state, reload };
 }
 
-export default function AdminApp({ staffName, role, staffId }: { staffName: string; role: string; staffId: string }) {
+export default function AdminApp({ staffName, role, staffId, nonce }: { staffName: string; role: string; staffId: string; nonce: string }) {
   const isAdmin = role === "ADMIN";
   const [tab, setTab] = useState<string>("reports");
   return (
@@ -70,6 +72,7 @@ export default function AdminApp({ staffName, role, staffId }: { staffName: stri
       {tab === "alerts" && <Alerts />}
       {tab === "customers" && <Customers />}
       {tab === "ledger" && <Ledger />}
+      {tab === "design" && <DesignEditor nonce={nonce} />}
       {tab === "rewards" && <Rewards />}
       {tab === "campaigns" && <Campaigns />}
       {tab === "locations" && <Locations />}

@@ -18,6 +18,11 @@ enum Role {
   ADMIN
 }
 
+enum DesignStage {
+  DRAFT
+  PUBLISHED
+}
+
 enum Platform {
   APPLE
   GOOGLE
@@ -87,6 +92,8 @@ model Business {
   settings  Settings?
   customers Customer[]
   staff     Staff[]
+  designs   CardDesign[]
+  assets    DesignAsset[]
 }
 
 model Settings {
@@ -466,4 +473,40 @@ model ExpiryNotice {
   createdAt  DateTime @default(now())
 
   @@unique([customerId, periodKey])
+}
+
+// تصميم بطاقة الولاء: مسودة واحدة ونسخة منشورة واحدة لكل محل.
+// العملاء يرون PUBLISHED فقط، والمحرر يعمل على DRAFT.
+model CardDesign {
+  id          String      @id @default(cuid())
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id])
+  stage       DesignStage
+  config      Json
+  version     Int         @default(1)
+  updatedById String?
+  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime    @default(now())
+
+  @@unique([businessId, stage])
+}
+
+// صور التصميم المرفوعة (شعار، أكواب، خلفيات، صور السلايدات).
+// تُخزّن في قاعدة البيانات لأن قرص Railway مؤقت، وتُخدم من /media/<id>.
+model DesignAsset {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  kind        String
+  mime        String
+  width       Int
+  height      Int
+  size        Int
+  sha256      String
+  data        Bytes
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([businessId, sha256])
+  @@index([businessId, createdAt])
 }

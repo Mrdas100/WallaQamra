@@ -1,5 +1,8 @@
+import { headers } from "next/headers";
 import { getDefaultBusiness, getSettings } from "@/modules/business";
-import { stampStripFile } from "@/modules/wallet/stamps";
+import { getPublishedDesign } from "@/modules/design/service";
+import { signupQrSvg } from "@/modules/signup";
+import LoyaltyCard from "@/ui/card/loyalty-card";
 import RegisterForm from "./register-form";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +11,10 @@ export default async function Home() {
   const business = await getDefaultBusiness();
   const s = await getSettings(business.id);
   const stamps = s.programMode === "STAMPS";
-  const strip = stamps ? stampStripFile(s.stampsPerReward, 0, 2) : null;
+  const [design, qr] = await Promise.all([getPublishedDesign(business.id), signupQrSvg()]);
+  const nonce = (await headers()).get("x-nonce") ?? "";
+  // الصفحة الرئيسية تعرض سلايد الأختام فقط كمثال
+  const sample = { ...design, slides: design.slides.filter((x) => x.kind === "stamps") };
   return (
     <main className="wrap stack">
       <div className="brandbar">
@@ -28,23 +34,21 @@ export default async function Home() {
           </>
         )}
       </div>
-      <div className="card" aria-hidden="true">
-        <div className="top">
-          <span className="name">بطاقة الولاء</span>
-          <span className="tier">{business.name}</span>
-        </div>
-        {strip ? (
-          <img className="stamps" src={`/stamps/${strip}`} alt="" />
-        ) : (
-          <>
-            <span className="moon" />
-            <div className="balance">
-              0<small>نقطة</small>
-            </div>
-          </>
-        )}
-        <div className="small">{stamps ? `0 من ${s.stampsPerReward} أكواب` : "اجمع النقاط واستبدلها بمكافآت"}</div>
-      </div>
+      <LoyaltyCard
+        design={sample}
+        nonce={nonce}
+        label="مثال على بطاقة الولاء"
+        data={{
+          name: "اسمك هنا",
+          tierLabel: null,
+          mode: s.programMode,
+          balance: stamps ? Math.min(3, s.stampsPerReward - 1) : 0,
+          goal: stamps ? s.stampsPerReward : s.rewardThreshold,
+          unitWord: stamps ? "ختم" : "نقطة",
+          reward: null,
+        }}
+        qr={<span dangerouslySetInnerHTML={{ __html: qr }} />}
+      />
       <section className="panel stack">
         <h2>سجّل واحصل على بطاقتك</h2>
         <RegisterForm />
