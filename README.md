@@ -86,7 +86,7 @@ npm run check                     # lint + typecheck + tests + build
 3. أنشئ بيئتين: `production` و`staging` (Project Settings → Environments). كل بيئة لها قاعدة بيانات ومتغيرات منفصلة تماماً.
 
 ### 2) خدمة التطبيق (web)
-- مصدرها هذا المستودع، وتستخدم `railway.json` تلقائياً: البناء `npm run build`، ثم `prisma migrate deploy` قبل كل نشر، ثم `npm start`، وفحص الصحة `/api/health`.
+- مصدرها هذا المستودع (فرع main) بالإعدادات: Build `npm run build` · Pre-deploy `npx prisma migrate deploy && npm run db:seed` · Start `npm start` · Healthcheck `/api/health` · `PORT=8080`.
 - Settings → Networking → Generate Domain (أو دومين خاص).
 - المتغيرات (Variables) — **كل الأسرار هنا فقط**، لا شيء في الكود:
   - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
@@ -97,7 +97,7 @@ npm run check                     # lint + typecheck + tests + build
 
 ### 3) خدمة cron
 - أضف خدمة ثانية من **نفس المستودع** وسمّها `cron`.
-- Settings → Config-as-code → Config file path: `railway.cron.json` (يشغّل `npm run cron` كل 5 دقائق).
+- الإعدادات: Build `npx prisma generate` · Start `npm run cron` · Cron schedule `*/5 * * * *` · Restart policy: Never.
 - انسخ لها نفس متغيرات خدمة web (أو استخدم Shared Variables).
 - تقوم بـ: إعادة محاولة مهام `WalletSyncJob` الفاشلة، تجديد QR البطاقات قبل انتهائه، انتهاء صلاحية النقاط وتنبيهاتها، هدايا أعياد الميلاد، وتنظيف جداول rate limit.
 - بديل: `POST /api/cron/run` مع `Authorization: Bearer $CRON_SECRET`.
