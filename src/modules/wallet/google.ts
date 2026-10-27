@@ -41,12 +41,19 @@ export function buildGoogleClass(businessName: string) {
   };
 }
 
+/** صورة الأختام بتصميم لوحة الإدارة المنشور (البصمة في الرابط تجعل Google يجلب الصورة الجديدة بعد النشر) */
+export function googleStripUrl(m: CardModel): string {
+  const filled = Math.max(0, Math.min(m.nextRewardCost, m.balance));
+  return `${env.appUrl}/wallet-art/${m.businessId}/${m.designVersion}/${m.nextRewardCost}-${filled}.png`;
+}
+
 export function buildGoogleObject(m: CardModel) {
   const word = unitWord(m.unit);
   return {
     id: objectId(m.serial),
     classId: classId(),
     state: "ACTIVE",
+    hexBackgroundColor: m.design.colors.bg,
     accountId: m.customerId,
     accountName: m.customerName,
     loyaltyPoints: { label: unitLabel(m.unit), balance: { int: m.balance } },
@@ -58,7 +65,7 @@ export function buildGoogleObject(m: CardModel) {
             {
               id: "stamps",
               mainImage: {
-                sourceUri: { uri: `${env.appUrl}/stamps/${m.stampStrip}` },
+                sourceUri: { uri: googleStripUrl(m) },
                 contentDescription: {
                   defaultValue: { language: "ar", value: `${Math.min(m.balance, m.nextRewardCost)} من ${m.nextRewardCost} أكواب` },
                 },

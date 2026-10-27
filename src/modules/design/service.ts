@@ -4,6 +4,7 @@ import { prisma, type Db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import type { Actor } from "../actor";
 import { audit } from "../audit";
+import { enqueueAllPasses, kickSync } from "../wallet/sync";
 import { assetIdsOf, DEFAULT_DESIGN, DesignSchema, parseDesign, type Design } from "./config";
 
 // المسودة والنسخة المنشورة منفصلتان: الحفظ يكتب المسودة فقط، والنشر ينسخها للعملاء.
@@ -82,7 +83,10 @@ export async function publishDraft(actor: Actor, expectedDraftVersion: number): 
       create: { businessId: actor.businessId, stage: "PUBLISHED", config: json(design), updatedById: actor.staffId },
     });
     await audit(actor, "design.publish", "CardDesign", pub.id, null, { version: pub.version, template: design.template }, tx);
+    // بطاقات المحفظة في جوالات العملاء تأخذ التصميم الجديد (ألوان، أختام، شعار)
+    await enqueueAllPasses(actor.businessId, "PASS_UPDATE", null, new Date(), tx);
   });
+  kickSync();
   return getDesignState(actor.businessId);
 }
 

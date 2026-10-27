@@ -4,6 +4,7 @@ import path from "node:path";
 import type { WalletPass } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
+import { passColors, renderLogo, renderStrip, stripInRange } from "./art";
 import { stampStripFile } from "./stamps";
 import { buildCardModel, markQrIssued, renderRelevantText, unitLabel, unitWord, type CardModel } from "./card";
 
@@ -58,9 +59,8 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
     organizationName: m.businessName,
     description: `بطاقة ولاء ${m.businessName}`,
     logoText: m.businessName,
-    foregroundColor: "rgb(245, 238, 226)",
-    backgroundColor: "rgb(92, 26, 40)",
-    labelColor: "rgb(200, 169, 126)",
+    // ألوان القالب المنشور من «تصميم بطاقة الولاء»
+    ...passColors(m.design),
     webServiceURL: `${env.appUrl}${APPLE_WEB_SERVICE_PATH}`,
     authenticationToken: m.authToken,
     sharingProhibited: true,
@@ -114,6 +114,12 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
 
 let imageCache: Record<string, Buffer> | null = null;
 
+/** الشعار المرفوع من لوحة الإدارة (إن وُجد) بدل الشعار الافتراضي */
+async function logoImages(m: CardModel): Promise<Record<string, Buffer>> {
+  const [l1, l2, l3] = await Promise.all(([1, 2, 3] as const).map((s) => renderLogo(m.design, s)));
+  return l1 && l2 && l3 ? { "logo.png": l1, "logo@2x.png": l2, "logo@3x.png": l3 } : {};
+}
+
 async function passImages(): Promise<Record<string, Buffer>> {
   if (imageCache) return imageCache;
   const dir = path.join(process.cwd(), "wallet-assets", "apple");
@@ -125,9 +131,19 @@ async function passImages(): Promise<Record<string, Buffer>> {
 
 const stripCache = new Map<string, Buffer>();
 
-/** وضع الأختام: شريط الأكواب حسب الرصيد بدل الشريط العام */
+/** وضع الأختام: شريط الأكواب حسب الرصيد بدل الشريط العام، بتصميم لوحة الإدارة المنشور */
 async function stampStripImages(m: CardModel): Promise<Record<string, Buffer>> {
   if (m.unit !== "STAMP") return {};
+  const filled = Math.max(0, Math.min(m.nextRewardCost, m.balance));
+  if (stripInRange(m.nextRewardCost, filled)) {
+    try {
+      const [s1, s2, s3] = await Promise.all(([1, 2, 3] as const).map((s) => renderStrip(m.design, m.nextRewardCost, filled, s)));
+      return { "strip.png": s1, "strip@2x.png": s2, "strip@3x.png": s3 };
+    } catch (e) {
+      // احتياط: إن تعذّر الرسم نستخدم الصور الجاهزة بدل أن تفشل البطاقة
+      console.error(`[wallet] strip render failed, using prebuilt art: ${(e as Error).message}`);
+    }
+  }
   const out: Record<string, Buffer> = {};
   for (const scale of [1, 2, 3] as const) {
     const file = stampStripFile(m.nextRewardCost, m.balance, scale);
@@ -155,7 +171,7 @@ export async function generateApplePass(pass: WalletPass, now = new Date()): Pro
 
   const { PKPass } = await import("passkit-generator");
   const pk = new PKPass(
-    { ...(await passImages()), ...(await stampStripImages(model)), "pass.json": Buffer.from(JSON.stringify(passJson)) },
+    { ...(await passImages()), ...(await logoImages(model)), ...(await stampStripImages(model)), "pass.json": Buffer.from(JSON.stringify(passJson)) },
     {
       wwdr: env.apple.wwdrPem,
       signerCert: env.apple.signerCertPem,

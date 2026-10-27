@@ -8,11 +8,19 @@ import { getBalance } from "../ledger";
 import { issueQrToken } from "../qr";
 import { TIER_LABEL, unitForMode } from "../rules";
 import { MAX_LOCATIONS } from "../rules";
+import { getPublishedDesign } from "../design/service";
+import type { Design } from "../design/config";
+import { designHash } from "./art";
 import { stampStripFile } from "./stamps";
 
 /** البيانات المشتركة التي تُبنى منها بطاقتا Apple وGoogle */
 export interface CardModel {
+  businessId: string;
   businessName: string;
+  /** التصميم المنشور من لوحة الإدارة (ألوان وأختام وشعار البطاقة في المحفظة) */
+  design: Design;
+  /** بصمة التصميم، تدخل في روابط صور Google لكي تُحدَّث عند النشر */
+  designVersion: string;
   serial: string;
   authToken: string;
   customerId: string;
@@ -69,7 +77,11 @@ export async function ensurePass(customer: Customer, platform: Platform): Promis
 
 export async function buildCardModel(pass: WalletPass, now = new Date()): Promise<CardModel> {
   const customer = await prisma.customer.findUniqueOrThrow({ where: { id: pass.customerId } });
-  const [settings, business] = await Promise.all([getSettings(pass.businessId), getBusiness(pass.businessId)]);
+  const [settings, business, design] = await Promise.all([
+    getSettings(pass.businessId),
+    getBusiness(pass.businessId),
+    getPublishedDesign(pass.businessId),
+  ]);
   const unit = unitForMode(settings.programMode);
   const [balance, tier, locations] = await Promise.all([
     getBalance(customer.id, unit),
@@ -82,7 +94,10 @@ export async function buildCardModel(pass: WalletPass, now = new Date()): Promis
   ]);
   const nextRewardCost = unit === "STAMP" ? settings.stampsPerReward : settings.rewardThreshold;
   return {
+    businessId: pass.businessId,
     businessName: business.name,
+    design,
+    designVersion: designHash(design),
     serial: pass.serial,
     authToken: pass.authToken,
     customerId: customer.id,

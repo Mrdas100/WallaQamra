@@ -11,6 +11,10 @@ import { verifyQrToken } from "@/modules/qr";
 import { POST as registerDevice, DELETE as unregisterDevice } from "@/app/api/wallet/apple/v1/devices/[deviceId]/registrations/[passTypeId]/[serial]/route";
 import { GET as serials } from "@/app/api/wallet/apple/v1/devices/[deviceId]/registrations/[passTypeId]/route";
 import { GET as latestPass } from "@/app/api/wallet/apple/v1/passes/[passTypeId]/[serial]/route";
+import { applyTemplate, STAMP_STYLES, TEMPLATE_IDS } from "@/modules/design/config";
+import { publishDraft, saveDraft } from "@/modules/design/service";
+import { renderStrip } from "@/modules/wallet/art";
+import { GET as artRoute } from "@/app/wallet-art/[businessId]/[version]/[file]/route";
 import { apiRequest, credit, idk, makeBusiness, makeCustomer, makeStaff, params, uid } from "./helpers";
 
 const PASS_TYPE = "pass.test.shahiqamra";
@@ -213,9 +217,58 @@ describe("بطاقة الأختام في المحافظ", () => {
     const json = buildApplePassJson(m) as { storeCard: { headerFields: { value: string }[]; primaryFields: unknown[] }; backgroundColor: string };
     expect(json.storeCard.headerFields[0].value).toBe("3/5");
     expect(json.storeCard.primaryFields).toEqual([]);
-    expect(json.backgroundColor).toBe("rgb(92, 26, 40)");
+    // بدون تصميم منشور: ألوان القالب الملكي الافتراضي
+    expect(json.backgroundColor).toBe("rgb(106, 30, 46)");
     const g = buildGoogleObject(m) as { imageModulesData?: { mainImage: { sourceUri: { uri: string } } }[] };
-    expect(g.imageModulesData?.[0].mainImage.sourceUri.uri).toBe("https://loyalty.test/stamps/5-3@2x.png");
+    expect(g.imageModulesData?.[0].mainImage.sourceUri.uri).toBe(`https://loyalty.test/wallet-art/${b.id}/${m.designVersion}/5-3.png`);
+  });
+
+  it("تصميم لوحة الإدارة المنشور يصل للمحفظة: الألوان والشريط، والنشر يحدّث البطاقات المحفوظة", async () => {
+    const b = await makeBusiness({ programMode: "STAMPS", stampsPerReward: 5 });
+    const { actor } = await makeStaff(b.id, "ADMIN");
+    const c = await makeCustomer(b.id);
+    await credit(b.id, c.id, 2, { unit: "STAMP" });
+    const pass = await ensurePass(c, "APPLE");
+    const before = await buildCardModel(pass);
+
+    const night = applyTemplate("night");
+    const s = await saveDraft(actor, night);
+    await prisma.walletSyncJob.deleteMany({ where: { walletPassId: pass.id } });
+    await publishDraft(actor, s.draftVersion);
+    // النشر يضع تحديثاً لكل بطاقة محفوظة ويغيّر وقت تعديلها حتى يجلبها الجوال
+    expect(await prisma.walletSyncJob.count({ where: { walletPassId: pass.id, kind: "PASS_UPDATE" } })).toBe(1);
+    const fresh = await prisma.walletPass.findUniqueOrThrow({ where: { id: pass.id } });
+    expect(fresh.contentUpdatedAt.getTime()).toBeGreaterThan(pass.contentUpdatedAt.getTime());
+
+    const after = await buildCardModel(fresh);
+    expect(after.design.template).toBe("night");
+    expect(after.designVersion).not.toBe(before.designVersion);
+    const json = buildApplePassJson(after) as Record<string, string>;
+    expect(json.backgroundColor).toBe("rgb(19, 33, 74)");
+    expect(json.foregroundColor).toBe("rgb(244, 236, 218)");
+    expect((buildGoogleObject(after) as { hexBackgroundColor: string }).hexBackgroundColor).toBe("#13214a");
+
+    // صورة Google العامة تُرسم من التصميم المنشور، وترفض المدخلات غير المعقولة
+    const png = await artRoute(new Request("http://x"), params({ businessId: b.id, version: after.designVersion, file: "5-2.png" }));
+    expect(png.status).toBe(200);
+    expect(png.headers.get("content-type")).toBe("image/png");
+    const bad = await artRoute(new Request("http://x"), params({ businessId: b.id, version: after.designVersion, file: "50-2.png" }));
+    expect(bad.status).toBe(404);
+  });
+
+  it("شريط الأختام يُرسم بمقاس Apple الصحيح (375×144) لكل القوالب وأنماط الأختام", async () => {
+    const sharp = (await import("sharp")).default;
+    for (const t of TEMPLATE_IDS) {
+      for (const scale of [1, 3] as const) {
+        const meta = await sharp(await renderStrip(applyTemplate(t), 5, 3, scale)).metadata();
+        expect([meta.width, meta.height]).toEqual([375 * scale, 144 * scale]);
+      }
+    }
+    for (const style of STAMP_STYLES) {
+      const d = applyTemplate("royal");
+      const meta = await sharp(await renderStrip({ ...d, stamp: { ...d.stamp, style } }, 10, 4, 2)).metadata();
+      expect([meta.width, meta.height]).toEqual([750, 288]);
+    }
   });
 
   it("كل صور الشريط موجودة لكل عدد أكواب مدعوم", async () => {
