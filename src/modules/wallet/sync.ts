@@ -155,6 +155,8 @@ export async function processDueJobs(limit = 50, now = new Date()): Promise<Sync
     } catch (e) {
       const attempts = job.attempts + 1;
       const dead = attempts >= MAX_ATTEMPTS;
+      // السبب يظهر في سجلات Railway (بدون أسرار: رسالة الخطأ فقط)
+      console.error(`[wallet-sync] job ${job.id} (${job.kind}) attempt ${attempts} failed: ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}`);
       if (dead) report.dead++;
       else report.failed++;
       await prisma.walletSyncJob.update({
