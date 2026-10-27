@@ -5,7 +5,9 @@
     "buildCommand": "npm run build"
   },
   "deploy": {
-    "preDeployCommand": ["npx prisma migrate deploy"],
+    "preDeployCommand": [
+      "npx prisma migrate deploy && npm run db:seed"
+    ],
     "startCommand": "npm start",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 60,

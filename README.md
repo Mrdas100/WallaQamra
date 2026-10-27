@@ -93,8 +93,7 @@ npm run check                     # lint + typecheck + tests + build
   - `APP_URL=https://<الدومين>`
   - `QR_SIGNING_SECRET`, `HASH_SALT`, `CRON_SECRET` (قيم عشوائية طويلة، **مختلفة** بين staging وproduction)
   - متغيرات Apple وGoogle أدناه
-- بعد أول نشر: شغّل التهيئة مرة واحدة من جهازك:
-  `railway run --service web -e production -- env ADMIN_USERNAME=admin ADMIN_PASSWORD='...' npm run db:seed`
+- حساب الأدمن الأول: ضع `ADMIN_USERNAME` و`ADMIN_PASSWORD` (12 حرفاً على الأقل) في متغيرات خدمة web؛ أمر ما قبل النشر يشغّل `npm run db:seed` تلقائياً وينشئ الحساب مرة واحدة فقط (ولا يغيّر كلمة المرور لاحقاً).
 
 ### 3) خدمة cron
 - أضف خدمة ثانية من **نفس المستودع** وسمّها `cron`.
