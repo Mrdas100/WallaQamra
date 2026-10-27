@@ -236,6 +236,11 @@ function StampsFace({ design, data, qr, from, scope }: { design: Design; data: C
           <span className={`qc-bar-fill qc-w${Math.round((Math.min(data.balance, data.goal) / Math.max(1, data.goal)) * 20)}`} />
         </div>
         <p className={ready ? "qc-ready" : undefined}>{stamps ? status : ready ? "لديك مكافأة متاحة" : `باقي ${remaining} ${data.unitWord} للمكافأة`}</p>
+        {data.balance < 0 && (
+          <p className="qc-owed">
+            خُصم {-data.balance} {data.unitWord} بسبب طلب مُرجع، وتُعوَّض من أول أختام قادمة
+          </p>
+        )}
       </div>
 
       {design.layout === "ticket" && <div className="qc-perf" aria-hidden="true" />}

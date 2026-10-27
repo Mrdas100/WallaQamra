@@ -256,6 +256,21 @@ describe("بطاقة الأختام في المحافظ", () => {
     expect(bad.status).toBe(404);
   });
 
+  it("رصيد بالسالب بعد مرتجع: الأعلى 0/5، والمتبقي الحقيقي مع سبب واضح بدل أرقام متضاربة", async () => {
+    const b = await makeBusiness({ programMode: "STAMPS", stampsPerReward: 5 });
+    const c = await makeCustomer(b.id);
+    await credit(b.id, c.id, -3, { unit: "STAMP" });
+    const pass = await ensurePass(c, "APPLE");
+    const m = await buildCardModel(pass);
+    expect(m.owed).toBe(3);
+    const json = buildApplePassJson(m) as { storeCard: { headerFields: { value: string }[]; secondaryFields: { key: string; value: string }[]; auxiliaryFields: { key: string; value: string }[] } };
+    expect(json.storeCard.headerFields[0].value).toBe("0/5");
+    expect(json.storeCard.secondaryFields.find((f) => f.key === "next")?.value).toBe("باقي 8 ختم");
+    expect(json.storeCard.auxiliaryFields.find((f) => f.key === "owed")?.value).toContain("خُصم 3 ختم بسبب طلب مُرجع");
+    const g = buildGoogleObject(m) as { textModulesData: { id: string }[] };
+    expect(g.textModulesData.some((t) => t.id === "owed")).toBe(true);
+  });
+
   it("شريط الأختام يُرسم بمقاس Apple الصحيح (375×144) لكل القوالب وأنماط الأختام", async () => {
     const sharp = (await import("sharp")).default;
     for (const t of TEMPLATE_IDS) {

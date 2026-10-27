@@ -31,6 +31,8 @@ export interface CardModel {
   tierLabel: string;
   nextRewardCost: number;
   remainingToReward: number;
+  /** أختام مخصومة بسبب مرتجع بعد استبدال (الرصيد بالسالب)، تُسدَّد من الأختام القادمة */
+  owed: number;
   /** وضع الأختام: اسم صورة الشريط @2x (للموقع وGoogle)، وnull في وضع النقاط */
   stampStrip: string | null;
   qrToken: string;
@@ -41,6 +43,10 @@ export interface CardModel {
   locations: Pick<BranchLocation, "latitude" | "longitude" | "relevantText" | "maxDistance">[];
   memberSince: Date;
 }
+
+/** سبب أن المتبقي أكبر من عدد الأختام المطلوبة */
+export const owedText = (m: Pick<CardModel, "owed" | "unit">) =>
+  `خُصم ${m.owed} ${m.unit === "STAMP" ? "ختم" : "نقطة"} بسبب طلب مُرجع، وتُعوَّض من أول ${m.unit === "STAMP" ? "أختام" : "نقاط"} قادمة`;
 
 export const unitLabel = (unit: Unit) => (unit === "STAMP" ? "الأختام" : "النقاط");
 export const unitWord = (unit: Unit) => (unit === "STAMP" ? "ختم" : "نقطة");
@@ -108,6 +114,7 @@ export async function buildCardModel(pass: WalletPass, now = new Date()): Promis
     tierLabel: TIER_LABEL[tier],
     nextRewardCost,
     remainingToReward: Math.max(0, nextRewardCost - balance),
+    owed: Math.max(0, -balance),
     stampStrip: unit === "STAMP" ? stampStripFile(nextRewardCost, balance, 2) : null,
     qrToken: issueQrToken(customer.id, env.qrPassTtlHours * 3600, now),
     cardUrl: cardUrl(customer),

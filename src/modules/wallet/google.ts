@@ -1,7 +1,7 @@
 import { createSign } from "node:crypto";
 import type { WalletPass } from "@prisma/client";
 import { env } from "@/lib/env";
-import { buildCardModel, markQrIssued, renderRelevantText, unitLabel, unitWord, type CardModel } from "./card";
+import { buildCardModel, markQrIssued, owedText, renderRelevantText, unitLabel, unitWord, type CardModel } from "./card";
 
 // Google Wallet: Loyalty Class/Object عبر REST API مع توقيع JWT يدوياً (بدون مكتبات ثقيلة).
 
@@ -80,6 +80,7 @@ export function buildGoogleObject(m: CardModel) {
         header: "المكافأة القادمة",
         body: m.remainingToReward > 0 ? `باقي ${m.remainingToReward} ${word}` : "لديك مكافأة متاحة 🎉",
       },
+      ...(m.owed > 0 ? [{ id: "owed", header: "تنبيه", body: owedText(m) }] : []),
       ...(m.offerText ? [{ id: "offer", header: "العرض", body: m.offerText }] : []),
       ...(m.noticeText ? [{ id: "notice", header: "تنبيه", body: m.noticeText }] : []),
     ],

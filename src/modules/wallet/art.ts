@@ -163,7 +163,8 @@ export async function stripSvg(d: Design, goal: number, filled: number, scale: n
     const art = dia * (images ? 0.84 : 0.78);
     const x = cx - art / 2;
     const y = cy - art / 2 - dia * 0.02;
-    const dim = state === "empty" ? ' opacity="0.5"' : "";
+    // الكوب المجاني باهت حتى تكتمل الأختام، حتى لا يُحسب كختم مكتمل
+    const dim = state === "empty" ? ' opacity="0.5"' : state === "reward" && filled < goal ? ' opacity="0.4"' : "";
     if (images) {
       parts.push(`<image href="${images[state]}" x="${x}" y="${y}" width="${art}" height="${art}" preserveAspectRatio="xMidYMid meet"${dim}/>`);
     } else {

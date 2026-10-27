@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { passColors, renderLogo, renderStrip, stripInRange } from "./art";
 import { stampStripFile } from "./stamps";
-import { buildCardModel, markQrIssued, renderRelevantText, unitLabel, unitWord, type CardModel } from "./card";
+import { buildCardModel, markQrIssued, owedText, renderRelevantText, unitLabel, unitWord, type CardModel } from "./card";
 
 // Apple Wallet: توليد pass.json وتوقيعه بـ passkit-generator، وإرسال push عبر APNs.
 // وضع التطوير (بدون شهادات): يُعاد pass.json للمعاينة ولا يُرسل push حقيقي.
@@ -21,6 +21,8 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
     m.remainingToReward > 0 ? `باقي ${m.remainingToReward} ${word}` : "لديك مكافأة متاحة 🎉";
   const front: Field[] = [];
   if (m.offerText) front.push({ key: "offer_front", label: "العرض", value: m.offerText });
+  // الرصيد بالسالب يظهر 0 في الأعلى، فنوضّح لماذا المتبقي أكثر من عدد الخانات
+  if (m.owed > 0) front.push({ key: "owed", label: "تنبيه", value: owedText(m) });
 
   const back: Field[] = [
     {

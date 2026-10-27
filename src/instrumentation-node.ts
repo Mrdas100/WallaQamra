@@ -18,7 +18,7 @@ export function startupChecks() {
 }
 
 // غيّر هذا الرقم عند تغيير صور البطاقة (الشريط/الشعار) لتُحدَّث كل البطاقات المحفوظة في جوالات العملاء مرة واحدة
-const PASS_ART_VERSION = "2026-10-27-design";
+const PASS_ART_VERSION = "2026-10-27-owed";
 
 async function refreshPassArt() {
   try {

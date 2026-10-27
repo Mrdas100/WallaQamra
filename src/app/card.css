@@ -79,6 +79,7 @@
 /* التقدم */
 .qc-status p { margin: 6px 0 0; font-size: 14.5px; color: var(--qc-muted); }
 .qc-status .qc-ready { color: var(--qc-accent); font-weight: 700; }
+.qc-status .qc-owed { font-size: 12.5px; opacity: .9; }
 .qc-bar { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--qc-text) 14%, transparent); overflow: hidden; }
 .qc-bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--qc-accent); transition: width .8s cubic-bezier(.2, .8, .2, 1); }
 
