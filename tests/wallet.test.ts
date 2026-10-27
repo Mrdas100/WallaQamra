@@ -266,7 +266,7 @@ describe("بطاقة الأختام في المحافظ", () => {
     const json = buildApplePassJson(m) as { storeCard: { headerFields: { value: string }[]; secondaryFields: { key: string; value: string }[]; auxiliaryFields: { key: string; value: string }[] } };
     expect(json.storeCard.headerFields[0].value).toBe("0/5");
     expect(json.storeCard.secondaryFields.find((f) => f.key === "next")?.value).toBe("باقي 8 ختم");
-    expect(json.storeCard.auxiliaryFields.find((f) => f.key === "owed")?.value).toContain("خُصم 3 ختم بسبب طلب مُرجع");
+    expect(json.storeCard.auxiliaryFields.find((f) => f.key === "owed")?.value).toContain("رصيدك ناقص 3 ختم");
     const g = buildGoogleObject(m) as { textModulesData: { id: string }[] };
     expect(g.textModulesData.some((t) => t.id === "owed")).toBe(true);
   });

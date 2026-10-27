@@ -31,7 +31,7 @@ export interface CardModel {
   tierLabel: string;
   nextRewardCost: number;
   remainingToReward: number;
-  /** أختام مخصومة بسبب مرتجع بعد استبدال (الرصيد بالسالب)، تُسدَّد من الأختام القادمة */
+  /** أختام مخصومة بعد الاستبدال بسبب مرتجع أو تصحيح يدوي (الرصيد بالسالب)، تُسدَّد من الأختام القادمة */
   owed: number;
   /** وضع الأختام: اسم صورة الشريط @2x (للموقع وGoogle)، وnull في وضع النقاط */
   stampStrip: string | null;
@@ -46,7 +46,7 @@ export interface CardModel {
 
 /** سبب أن المتبقي أكبر من عدد الأختام المطلوبة */
 export const owedText = (m: Pick<CardModel, "owed" | "unit">) =>
-  `خُصم ${m.owed} ${m.unit === "STAMP" ? "ختم" : "نقطة"} بسبب طلب مُرجع، وتُعوَّض من أول ${m.unit === "STAMP" ? "أختام" : "نقاط"} قادمة`;
+  `رصيدك ناقص ${m.owed} ${m.unit === "STAMP" ? "ختم" : "نقطة"} بسبب مرتجع أو تصحيح، وتُعوَّض من أول ${m.unit === "STAMP" ? "أختام" : "نقاط"} قادمة`;
 
 export const unitLabel = (unit: Unit) => (unit === "STAMP" ? "الأختام" : "النقاط");
 export const unitWord = (unit: Unit) => (unit === "STAMP" ? "ختم" : "نقطة");

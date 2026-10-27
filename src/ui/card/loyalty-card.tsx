@@ -238,7 +238,7 @@ function StampsFace({ design, data, qr, from, scope }: { design: Design; data: C
         <p className={ready ? "qc-ready" : undefined}>{stamps ? status : ready ? "لديك مكافأة متاحة" : `باقي ${remaining} ${data.unitWord} للمكافأة`}</p>
         {data.balance < 0 && (
           <p className="qc-owed">
-            خُصم {-data.balance} {data.unitWord} بسبب طلب مُرجع، وتُعوَّض من أول أختام قادمة
+            رصيدك ناقص {-data.balance} {data.unitWord} بسبب مرتجع أو تصحيح، وتُعوَّض من أول أختام قادمة
           </p>
         )}
       </div>
