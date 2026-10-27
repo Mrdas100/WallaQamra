@@ -201,3 +201,31 @@ describe("PassKit Web Service", () => {
     expect(await prisma.deviceRegistration.count({ where: { walletPassId: pass.id } })).toBe(0);
   });
 });
+
+describe("بطاقة الأختام في المحافظ", () => {
+  it("Apple: الرصيد في الأعلى كـ 3/5 والشريط يرسم الأكواب؛ Google: صورة الأختام", async () => {
+    const b = await makeBusiness({ programMode: "STAMPS", stampsPerReward: 5 });
+    const c = await makeCustomer(b.id);
+    await credit(b.id, c.id, 3, { unit: "STAMP" });
+    const pass = await ensurePass(c, "APPLE");
+    const m = await buildCardModel(pass);
+    expect(m.stampStrip).toBe("5-3@2x.png");
+    const json = buildApplePassJson(m) as { storeCard: { headerFields: { value: string }[]; primaryFields: unknown[] }; backgroundColor: string };
+    expect(json.storeCard.headerFields[0].value).toBe("3/5");
+    expect(json.storeCard.primaryFields).toEqual([]);
+    expect(json.backgroundColor).toBe("rgb(92, 26, 40)");
+    const g = buildGoogleObject(m) as { imageModulesData?: { mainImage: { sourceUri: { uri: string } } }[] };
+    expect(g.imageModulesData?.[0].mainImage.sourceUri.uri).toBe("https://loyalty.test/stamps/5-3@2x.png");
+  });
+
+  it("كل صور الشريط موجودة لكل عدد أكواب مدعوم", async () => {
+    const { existsSync } = await import("node:fs");
+    const { stampStripFile } = await import("@/modules/wallet/stamps");
+    for (let n = 3; n <= 10; n++) {
+      for (let k = 0; k <= n + 2; k++) {
+        for (const s of [1, 2, 3] as const) expect(existsSync(`public/stamps/${stampStripFile(n, k, s)}`)).toBe(true);
+      }
+    }
+    expect(stampStripFile(12, 1, 2)).toBeNull();
+  });
+});

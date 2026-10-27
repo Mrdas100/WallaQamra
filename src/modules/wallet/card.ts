@@ -8,6 +8,7 @@ import { getBalance } from "../ledger";
 import { issueQrToken } from "../qr";
 import { TIER_LABEL, unitForMode } from "../rules";
 import { MAX_LOCATIONS } from "../rules";
+import { stampStripFile } from "./stamps";
 
 /** البيانات المشتركة التي تُبنى منها بطاقتا Apple وGoogle */
 export interface CardModel {
@@ -22,6 +23,8 @@ export interface CardModel {
   tierLabel: string;
   nextRewardCost: number;
   remainingToReward: number;
+  /** وضع الأختام: اسم صورة الشريط @2x (للموقع وGoogle)، وnull في وضع النقاط */
+  stampStrip: string | null;
   qrToken: string;
   cardUrl: string;
   offerText: string;
@@ -90,6 +93,7 @@ export async function buildCardModel(pass: WalletPass, now = new Date()): Promis
     tierLabel: TIER_LABEL[tier],
     nextRewardCost,
     remainingToReward: Math.max(0, nextRewardCost - balance),
+    stampStrip: unit === "STAMP" ? stampStripFile(nextRewardCost, balance, 2) : null,
     qrToken: issueQrToken(customer.id, env.qrPassTtlHours * 3600, now),
     cardUrl: cardUrl(customer),
     offerText: pass.offerText,

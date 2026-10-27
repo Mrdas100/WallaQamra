@@ -10,7 +10,12 @@ async function main() {
   const business = await prisma.business.upsert({
     where: { slug },
     update: {},
-    create: { slug, name: process.env.BUSINESS_NAME || "شاهي قمرا", settings: { create: {} } },
+    create: {
+      slug,
+      name: process.env.BUSINESS_NAME || "شاهي قمرا",
+      // بطاقة أختام: 5 أكواب والسادس مجاناً
+      settings: { create: { programMode: "STAMPS", stampsPerReward: 5, minStampAmountHalalas: 300 } },
+    },
   });
 
   const username = (process.env.ADMIN_USERNAME || "").trim().toLowerCase();
@@ -33,10 +38,7 @@ async function main() {
   if ((await prisma.reward.count({ where: { businessId: business.id } })) === 0) {
     await prisma.reward.createMany({
       data: [
-        { businessId: business.id, name: "شاهي مجاني", description: "كوب شاهي بأي نكهة", cost: 100, sortOrder: 1 },
-        { businessId: business.id, name: "خصم 15 ريال", description: "على طلبك القادم", cost: 200, sortOrder: 2 },
-        { businessId: business.id, name: "حلى مجاني", description: "للمستوى الفضي فأعلى", cost: 150, minTier: "SILVER", sortOrder: 3 },
-        { businessId: business.id, name: "مشروب مجاني", description: "مكافأة بطاقة الأختام", cost: 8, unit: "STAMP", sortOrder: 4 },
+        { businessId: business.id, name: "كوب مجاني", description: "السادس علينا بعد 5 أكواب", cost: 5, unit: "STAMP", sortOrder: 1 },
       ],
     });
     console.log("Created default rewards");

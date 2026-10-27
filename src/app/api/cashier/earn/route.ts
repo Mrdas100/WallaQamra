@@ -9,6 +9,7 @@ const Body = z
     externalRef: z.string().min(1).max(40),
     amount: z.union([z.string().max(12), z.number()]),
     idempotencyKey: z.string().min(8).max(80),
+    cups: z.number().int().min(1).max(50).optional(),
   })
   .strict();
 
@@ -21,6 +22,7 @@ export const POST = route(
       externalRef: body.externalRef.trim(),
       amountHalalas: parseAmountToHalalas(body.amount),
       idempotencyKey: body.idempotencyKey,
+      cups: body.cups,
     });
     return { orderId: r.order.id, points: r.points, balance: r.balance, replayed: r.replayed, calc: r.calc };
   },

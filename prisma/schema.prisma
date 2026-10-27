@@ -97,7 +97,8 @@ model Settings {
   pointsPerSar          Int         @default(1) // نسبة النقاط: نقاط لكل ريال
   rewardThreshold       Int         @default(100) // حد المكافأة الافتراضي المعروض على البطاقة
   stampsPerReward       Int         @default(8)
-  minStampAmountHalalas Int         @default(1000)
+  minStampAmountHalalas Int         @default(1000) // أقل سعر للكوب: يمنع إدخال أكواب أكثر من قيمة الطلب
+  maxCupsPerOrder       Int         @default(6)
   maxOrderAmountHalalas Int         @default(100000)
 
   // منع التلاعب
@@ -239,6 +240,7 @@ model Order {
   customer       Customer    @relation(fields: [customerId], references: [id])
   externalRef    String
   amountHalalas  Int
+  cups           Int? // وضع الأختام: عدد الأكواب في الطلب
   status         OrderStatus @default(COMPLETED)
   staffId        String
   staff          Staff       @relation("OrderStaff", fields: [staffId], references: [id])

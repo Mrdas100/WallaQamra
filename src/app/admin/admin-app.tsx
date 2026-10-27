@@ -546,7 +546,8 @@ function StaffTab({ selfId }: { selfId: string }) {
 }
 
 const SETTINGS_GROUPS: { title: string; fields: [string, string, ("int" | "time" | "sar")?][] }[] = [
-  { title: "البرنامج", fields: [["pointsPerSar", "نقاط لكل ريال"], ["rewardThreshold", "حد المكافأة (نقاط)"], ["stampsPerReward", "أختام لكل مكافأة"], ["minStampAmountHalalas", "أقل مبلغ للختم (ريال)", "sar"], ["maxOrderAmountHalalas", "أقصى مبلغ للطلب (ريال)", "sar"]] },
+  { title: "بطاقة الأختام", fields: [["stampsPerReward", "عدد الأكواب قبل المجاني"], ["minStampAmountHalalas", "أقل سعر للكوب (ريال)", "sar"], ["maxCupsPerOrder", "أقصى أكواب للطلب الواحد"]] },
+  { title: "بطاقة النقاط", fields: [["pointsPerSar", "نقاط لكل ريال"], ["rewardThreshold", "حد المكافأة (نقاط)"], ["maxOrderAmountHalalas", "أقصى مبلغ للطلب (ريال)", "sar"]] },
   { title: "منع التلاعب", fields: [["dailyMaxEarnTxns", "سقف العمليات اليومية للعميل"], ["dailyMaxEarnPoints", "سقف النقاط اليومية للعميل"], ["cooldownSeconds", "الانتظار بين عمليتين (ثانية)"], ["manualMaxPerShift", "حد الإضافات اليدوية بالوردية"], ["manualMaxPointsPerShift", "حد نقاط الإضافات اليدوية بالوردية"], ["shiftHours", "مدة الوردية (ساعة)"], ["redeemMaxAttempts", "محاولات كود الاستبدال قبل القفل"], ["redeemLockBaseMinutes", "مدة القفل الأولى (دقيقة)"]] },
   { title: "الدوام والتنبيهات", fields: [["openMinute", "بداية الدوام", "time"], ["closeMinute", "نهاية الدوام", "time"], ["alertSameCustomerCount", "تنبيه: إضافات لنفس العميل"], ["alertSameCustomerWindowHours", "خلال (ساعة)"], ["alertRedemptionsCount", "تنبيه: استبدالات متتالية"], ["alertRedemptionsWindowHours", "خلال (ساعة)"]] },
   { title: "المستويات", fields: [["silverSpendSar", "فضي: إنفاق سنوي (ريال)"], ["goldSpendSar", "ذهبي: إنفاق سنوي (ريال)"], ["silverMultiplierPct", "مضاعِف الفضي %"], ["goldMultiplierPct", "مضاعِف الذهبي %"]] },
@@ -584,8 +585,14 @@ function SettingsForm({ initial, onSaved }: { initial: Any; onSaved: () => void 
         <h2>نوع البرنامج</h2>
         <select value={form.programMode} onChange={(e) => setForm({ ...form, programMode: e.target.value })} aria-label="نوع البرنامج">
           <option value="POINTS">نقاط بنسبة من المبلغ</option>
-          <option value="STAMPS">ختمات / زيارات</option>
+          <option value="STAMPS">أختام: ختم لكل كوب</option>
         </select>
+        {form.programMode === "STAMPS" && (
+          <p className="muted small">
+            مثال: 5 أكواب يعني أن السادس مجاناً. الكاشير يدخل عدد الأكواب مع كل طلب، والنظام يرفض عدداً أكبر من قيمة الطلب.
+            تكلفة مكافأة «الكوب المجاني» تُضبط من تبويب المكافآت ويجب أن تساوي عدد الأكواب.
+          </p>
+        )}
       </div>
       <div className="panel stack">
         <h2>رسالة العرض على البطاقات</h2>

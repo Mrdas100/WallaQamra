@@ -13,6 +13,7 @@ const Patch = z
     rewardThreshold: n(1, 100000),
     stampsPerReward: n(1, 50),
     minStampAmountHalalas: n(0, 1000000),
+    maxCupsPerOrder: n(1, 50),
     maxOrderAmountHalalas: n(100, 10000000),
     dailyMaxEarnTxns: n(1, 100),
     dailyMaxEarnPoints: n(1, 1000000),

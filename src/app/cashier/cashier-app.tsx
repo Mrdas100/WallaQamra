@@ -167,23 +167,26 @@ type Run = <T>(fn: () => Promise<T>) => Promise<T | null>;
 function EarnForm({ customer, busy, run, onDone }: { customer: CustomerView; busy: boolean; run: Run; onDone: (b: number, p: number) => void }) {
   const [ref, setRef] = useState("");
   const [amount, setAmount] = useState("");
+  const [cups, setCups] = useState(1);
   const [key, setKey] = useState(newKey);
+  const stamps = customer.unit === "STAMP";
   return (
     <section className="panel">
-      <h2>إضافة نقاط لطلب</h2>
+      <h2>{stamps ? "إضافة أختام لطلب" : "إضافة نقاط لطلب"}</h2>
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
           const r = await run(() =>
             api<{ balance: number; points: number }>("/api/cashier/earn", {
-              body: { customerId: customer.id, externalRef: ref.trim(), amount, idempotencyKey: key },
+              body: { customerId: customer.id, externalRef: ref.trim(), amount, idempotencyKey: key, ...(stamps ? { cups } : {}) },
             }),
           );
           if (r) {
             onDone(r.balance, r.points);
             setRef("");
             setAmount("");
+            setCups(1);
             setKey(newKey());
           }
         }}
@@ -198,7 +201,17 @@ function EarnForm({ customer, busy, run, onDone }: { customer: CustomerView; bus
             <input id="amt" inputMode="decimal" required value={amount} onChange={(e) => { setAmount(e.target.value); setKey(newKey()); }} />
           </div>
         </div>
-        <p className="muted small">النقاط تُحسب تلقائياً من المبلغ.</p>
+        {stamps && (
+          <div>
+            <label>عدد الأكواب</label>
+            <div className="stepper" role="group" aria-label="عدد الأكواب">
+              <button type="button" className="btn-ghost" aria-label="إنقاص" onClick={() => { setCups((c) => Math.max(1, c - 1)); setKey(newKey()); }}>−</button>
+              <output aria-live="polite">{cups}</output>
+              <button type="button" className="btn-ghost" aria-label="زيادة" onClick={() => { setCups((c) => Math.min(20, c + 1)); setKey(newKey()); }}>+</button>
+            </div>
+          </div>
+        )}
+        <p className="muted small">{stamps ? "ختم لكل كوب. النظام يتحقق أن قيمة الطلب تغطي عدد الأكواب." : "النقاط تُحسب تلقائياً من المبلغ."}</p>
         <button className="btn-block" disabled={busy}>إضافة</button>
       </form>
     </section>

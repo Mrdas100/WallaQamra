@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { getBalance } from "@/modules/ledger";
-import { earnForOrder } from "@/modules/orders";
+import { earnForOrder, refundOrder } from "@/modules/orders";
 import { campaignMultiplierPct, computeEarn, tierForSpend } from "@/modules/rules";
 import { runExpiry } from "@/modules/expiry";
 import { runBirthdayBonuses } from "@/modules/bonuses";
@@ -86,6 +86,37 @@ describe("الختمات كبديل للنقاط", () => {
     await order(actor, c.id, 500); // أقل من الحد: لا ختم
     expect(await getBalance(c.id, "STAMP")).toBe(1);
     expect(await getBalance(c.id, "POINT")).toBe(0);
+  });
+});
+
+describe("بطاقة الأختام: ختم لكل كوب", () => {
+  const S = { programMode: "STAMPS" as const, pointsPerSar: 1, minStampAmountHalalas: 300, silverMultiplierPct: 100, goldMultiplierPct: 100 };
+
+  it("3 أكواب = 3 أختام، وحملة ×2 تضاعفها", () => {
+    expect(computeEarn(S, 1500, "BRONZE", 100, 3)).toMatchObject({ unit: "STAMP", points: 3 });
+    expect(computeEarn(S, 1500, "BRONZE", 200, 2)).toMatchObject({ points: 4 });
+    expect(computeEarn(S, 500, "BRONZE", 100, 2)).toMatchObject({ points: 0 }); // المبلغ لا يغطي كوبين
+  });
+
+  it("يرفض أكواباً أكثر من قيمة الطلب أو من السقف، والمرتجع يعكس كل الأختام", async () => {
+    const b = await makeBusiness({ programMode: "STAMPS", minStampAmountHalalas: 300, maxCupsPerOrder: 6 });
+    const c = await makeCustomer(b.id);
+    const { actor } = await makeStaff(b.id);
+    const cupsOrder = (halalas: number, cups: number) =>
+      earnForOrder(actor, { customerId: c.id, externalRef: `O${uid()}`, amountHalalas: halalas, idempotencyKey: idk(), cups });
+
+    await expect(cupsOrder(1000, 4)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(cupsOrder(5000, 7)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(cupsOrder(1000, 0)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await getBalance(c.id, "STAMP")).toBe(0);
+
+    const r = await cupsOrder(1500, 3);
+    expect(r.points).toBe(3);
+    expect(r.order.cups).toBe(3);
+    expect(await getBalance(c.id, "STAMP")).toBe(3);
+
+    await refundOrder(actor, { externalRef: r.order.externalRef, reason: "مرتجع" });
+    expect(await getBalance(c.id, "STAMP")).toBe(0);
   });
 });
 

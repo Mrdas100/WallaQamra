@@ -30,7 +30,11 @@ export function buildGoogleClass(businessName: string) {
       sourceUri: { uri: `${env.appUrl}/google-logo.png` },
       contentDescription: { defaultValue: { language: "ar", value: businessName } },
     },
-    hexBackgroundColor: "#0c2e30",
+    hexBackgroundColor: "#5c1a28",
+    heroImage: {
+      sourceUri: { uri: `${env.appUrl}/card-hero.png` },
+      contentDescription: { defaultValue: { language: "ar", value: businessName } },
+    },
     reviewStatus: "UNDER_REVIEW",
     multipleDevicesAndHoldersAllowedStatus: "ONE_USER_ALL_DEVICES",
     countryCode: "SA",
@@ -48,6 +52,21 @@ export function buildGoogleObject(m: CardModel) {
     loyaltyPoints: { label: unitLabel(m.unit), balance: { int: m.balance } },
     secondaryLoyaltyPoints: { label: "المستوى", balance: { string: m.tierLabel } },
     barcode: { type: "QR_CODE", value: m.qrToken, alternateText: "امسح عند الكاشير" },
+    ...(m.stampStrip
+      ? {
+          imageModulesData: [
+            {
+              id: "stamps",
+              mainImage: {
+                sourceUri: { uri: `${env.appUrl}/stamps/${m.stampStrip}` },
+                contentDescription: {
+                  defaultValue: { language: "ar", value: `${Math.min(m.balance, m.nextRewardCost)} من ${m.nextRewardCost} أكواب` },
+                },
+              },
+            },
+          ],
+        }
+      : {}),
     textModulesData: [
       {
         id: "next",

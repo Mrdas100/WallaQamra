@@ -57,11 +57,13 @@ export function computeEarn(
   amountHalalas: number,
   tier: Tier,
   campaignPct: number,
+  cups = 1,
 ): EarnCalc {
   if (s.programMode === "STAMPS") {
-    const qualifies = amountHalalas >= s.minStampAmountHalalas;
-    const stamps = qualifies ? Math.max(1, Math.floor(campaignPct / 100)) : 0;
-    return { unit: "STAMP", points: stamps, base: qualifies ? 1 : 0, tierPct: 100, campaignPct };
+    // ختم لكل كوب، بشرط أن تغطي قيمة الطلب أقل سعر للكوب لكل الأكواب
+    const qualifies = cups >= 1 && amountHalalas >= s.minStampAmountHalalas * cups;
+    const stamps = qualifies ? Math.max(cups, Math.floor((cups * campaignPct) / 100)) : 0;
+    return { unit: "STAMP", points: stamps, base: qualifies ? cups : 0, tierPct: 100, campaignPct };
   }
   const base = Math.floor((amountHalalas * s.pointsPerSar) / 100);
   const tierPct = tierMultiplierPct(tier, s);

@@ -4,6 +4,7 @@ import path from "node:path";
 import type { WalletPass } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
+import { stampStripFile } from "./stamps";
 import { buildCardModel, markQrIssued, renderRelevantText, unitLabel, unitWord, type CardModel } from "./card";
 
 // Apple Wallet: توليد pass.json وتوقيعه بـ passkit-generator، وإرسال push عبر APNs.
@@ -57,9 +58,9 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
     organizationName: m.businessName,
     description: `بطاقة ولاء ${m.businessName}`,
     logoText: m.businessName,
-    foregroundColor: "rgb(255, 255, 255)",
-    backgroundColor: "rgb(12, 46, 48)",
-    labelColor: "rgb(222, 186, 120)",
+    foregroundColor: "rgb(245, 238, 226)",
+    backgroundColor: "rgb(92, 26, 40)",
+    labelColor: "rgb(200, 169, 126)",
     webServiceURL: `${env.appUrl}${APPLE_WEB_SERVICE_PATH}`,
     authenticationToken: m.authToken,
     sharingProhibited: true,
@@ -72,7 +73,26 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
       },
     ],
     ...(locations.length ? { locations, maxDistance } : {}),
-    storeCard: {
+    storeCard: m.stampStrip
+      ? {
+          // الأكواب مرسومة على الشريط، فالرصيد يظهر في الأعلى بدل أن يغطي الصورة
+          headerFields: [
+            {
+              key: "balance",
+              label: unitLabel(m.unit),
+              value: `${Math.min(m.balance, m.nextRewardCost)}/${m.nextRewardCost}`,
+              changeMessage: `أختامك الآن %@`,
+            },
+          ],
+          primaryFields: [],
+          secondaryFields: [
+            { key: "member", label: "العضو", value: m.customerName },
+            { key: "next", label: "الكوب المجاني", value: next },
+          ],
+          auxiliaryFields: front,
+          backFields: back,
+        }
+      : {
       headerFields: [{ key: "tier", label: "المستوى", value: m.tierLabel, changeMessage: "أصبحت في المستوى %@" }],
       primaryFields: [
         {
@@ -103,6 +123,25 @@ async function passImages(): Promise<Record<string, Buffer>> {
   return imageCache;
 }
 
+const stripCache = new Map<string, Buffer>();
+
+/** وضع الأختام: شريط الأكواب حسب الرصيد بدل الشريط العام */
+async function stampStripImages(m: CardModel): Promise<Record<string, Buffer>> {
+  if (m.unit !== "STAMP") return {};
+  const out: Record<string, Buffer> = {};
+  for (const scale of [1, 2, 3] as const) {
+    const file = stampStripFile(m.nextRewardCost, m.balance, scale);
+    if (!file) return {};
+    let buf = stripCache.get(file);
+    if (!buf) {
+      buf = await readFile(path.join(process.cwd(), "public", "stamps", file));
+      stripCache.set(file, buf);
+    }
+    out[scale === 1 ? "strip.png" : `strip@${scale}x.png`] = buf;
+  }
+  return out;
+}
+
 export type ApplePassResult =
   | { devMode: false; buffer: Buffer; lastModified: Date }
   | { devMode: true; passJson: Record<string, unknown>; lastModified: Date };
@@ -116,7 +155,7 @@ export async function generateApplePass(pass: WalletPass, now = new Date()): Pro
 
   const { PKPass } = await import("passkit-generator");
   const pk = new PKPass(
-    { ...(await passImages()), "pass.json": Buffer.from(JSON.stringify(passJson)) },
+    { ...(await passImages()), ...(await stampStripImages(model)), "pass.json": Buffer.from(JSON.stringify(passJson)) },
     {
       wwdr: env.apple.wwdrPem,
       signerCert: env.apple.signerCertPem,

@@ -7,6 +7,7 @@ import { getBalance } from "@/modules/ledger";
 import { TIER_LABEL, tierAtLeast, unitForMode } from "@/modules/rules";
 import { LEDGER_LABEL } from "@/ui/labels";
 import { fmtServerDate } from "@/ui/format";
+import { stampStripFile } from "@/modules/wallet/stamps";
 import CardClient from "./card-client";
 
 export const metadata = { title: "بطاقتي — شاهي قمرا" };
@@ -41,6 +42,7 @@ export default async function CardPage({
     }),
   ]);
   const goal = unit === "STAMP" ? settings.stampsPerReward : settings.rewardThreshold;
+  const strip = unit === "STAMP" ? stampStripFile(goal, balance, 2) : null;
   const key = cardKey(customer);
   const devWallet = env.apple.devMode || env.google.devMode;
 
@@ -56,15 +58,25 @@ export default async function CardPage({
           <span className="name">{customer.name}</span>
           <span className="tier">{TIER_LABEL[tier]}</span>
         </div>
-        <span className="moon" />
+        {strip ? (
+          <img className="stamps" src={`/stamps/${strip}`} alt={`${Math.min(balance, goal)} من ${goal} أكواب`} />
+        ) : (
+          <>
+            <span className="moon" />
+            <div className="balance">
+              {balance}
+              <small>{word}</small>
+            </div>
+          </>
+        )}
         <div>
-          <div className="balance">
-            {balance}
-            <small>{word}</small>
-          </div>
-          <progress max={goal} value={Math.min(balance, goal)} aria-label="التقدم نحو المكافأة" />
+          {!strip && <progress max={goal} value={Math.min(balance, goal)} aria-label="التقدم نحو المكافأة" />}
           <div className="small">
-            {balance >= goal ? "لديك مكافأة متاحة 🎉" : `باقي ${goal - balance} ${word} للمكافأة القادمة`}
+            {balance >= goal
+              ? "لديك مكافأة متاحة 🎉"
+              : unit === "STAMP"
+                ? `${balance} من ${goal} — باقي ${goal - balance} وكوبك مجاني`
+                : `باقي ${goal - balance} ${word} للمكافأة القادمة`}
           </div>
         </div>
       </div>

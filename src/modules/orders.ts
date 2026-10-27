@@ -19,6 +19,8 @@ export interface EarnInput {
   externalRef: string;
   amountHalalas: number;
   idempotencyKey: string;
+  /** وضع الأختام: عدد الأكواب (افتراضياً 1) */
+  cups?: number;
 }
 
 export interface EarnResult {
@@ -44,6 +46,18 @@ export async function earnForOrder(actor: Actor, input: EarnInput, now = new Dat
   const [settings, business] = await Promise.all([getSettings(actor.businessId), getBusiness(actor.businessId)]);
   if (input.amountHalalas > settings.maxOrderAmountHalalas) {
     throw new AppError("BAD_REQUEST", "المبلغ أكبر من الحد المسموح للطلب الواحد");
+  }
+  const stampsMode = settings.programMode === "STAMPS";
+  const cups = stampsMode ? (input.cups ?? 1) : undefined;
+  if (cups !== undefined) {
+    if (!Number.isInteger(cups) || cups < 1) throw new AppError("BAD_REQUEST", "عدد الأكواب غير صالح");
+    if (cups > settings.maxCupsPerOrder) {
+      throw new AppError("BAD_REQUEST", `أقصى عدد أكواب للطلب الواحد ${settings.maxCupsPerOrder}`);
+    }
+    // بدون عدد صريح: طلب أقل من سعر الكوب يُسجَّل بلا ختم (مثل الطريقة القديمة)
+    if (input.cups !== undefined && input.amountHalalas < settings.minStampAmountHalalas * cups) {
+      throw new AppError("BAD_REQUEST", "عدد الأكواب لا يتناسب مع قيمة الطلب");
+    }
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -78,7 +92,7 @@ export async function earnForOrder(actor: Actor, input: EarnInput, now = new Dat
 
     const tier = await customerTier(customer.id, settings, now, tx);
     const campaigns = await tx.campaign.findMany({ where: { businessId: actor.businessId, active: true } });
-    const calc = computeEarn(settings, input.amountHalalas, tier, campaignMultiplierPct(campaigns, now, business.timezone));
+    const calc = computeEarn(settings, input.amountHalalas, tier, campaignMultiplierPct(campaigns, now, business.timezone), cups);
 
     // السقف اليومي: عدد العمليات ومجموع النقاط
     const dayStart = startOfLocalDay(now, business.timezone);
@@ -102,6 +116,7 @@ export async function earnForOrder(actor: Actor, input: EarnInput, now = new Dat
         customerId: customer.id,
         externalRef: input.externalRef,
         amountHalalas: input.amountHalalas,
+        cups,
         staffId: actor.staffId,
         deviceId: actor.deviceId,
         ip: actor.ip,
