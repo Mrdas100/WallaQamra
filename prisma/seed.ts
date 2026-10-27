@@ -15,7 +15,9 @@ async function main() {
 
   const username = (process.env.ADMIN_USERNAME || "").trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD || "";
-  if (username) {
+  if (username && !password) {
+    console.warn(`ADMIN_PASSWORD is not set — skipping admin "${username}"`);
+  } else if (username) {
     if (password.length < 12) throw new Error("ADMIN_PASSWORD must be at least 12 characters");
     const existing = await prisma.staff.findUnique({ where: { businessId_username: { businessId: business.id, username } } });
     if (!existing) {
