@@ -6,7 +6,7 @@ const Body = z
   .object({
     customerId: z.string().min(10).max(40),
     rewardId: z.string().min(10).max(40),
-    code: z.string().max(12),
+    presence: z.string().max(120),
     idempotencyKey: z.string().min(8).max(80),
   })
   .strict();

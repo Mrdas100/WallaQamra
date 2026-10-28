@@ -30,3 +30,28 @@ export function verifyQrToken(token: string, now = new Date()): QrResult {
   if (exp * 1000 < now.getTime()) return { ok: false, reason: "expired" };
   return { ok: true, customerId, exp: new Date(exp * 1000) };
 }
+
+// توكن "حضور العميل": يُصدر للكاشير فقط بعد مسح QR صالح من جوال العميل،
+// ويُشترط للاستبدال (بدلاً من رمز الاستبدال القديم). البحث بالجوال لا يُصدره.
+// الصيغة: P1.<customerId>.<exp base36>.<sig>
+
+const PRESENCE_PREFIX = "P1";
+export const PRESENCE_TTL_SECONDS = 15 * 60;
+
+function signPresence(payload: string): string {
+  return hmac(env.qrSecret, `presence|${payload}`).subarray(0, 16).toString("base64url");
+}
+
+export function issuePresenceToken(customerId: string, now = new Date()): string {
+  const exp = Math.floor(now.getTime() / 1000) + PRESENCE_TTL_SECONDS;
+  const payload = `${PRESENCE_PREFIX}.${customerId}.${exp.toString(36)}`;
+  return `${payload}.${signPresence(payload)}`;
+}
+
+export function verifyPresenceToken(token: string, customerId: string, now = new Date()): boolean {
+  const parts = token.trim().split(".");
+  if (parts.length !== 4 || parts[0] !== PRESENCE_PREFIX || parts[1] !== customerId) return false;
+  if (!/^[a-z0-9]{1,10}$/.test(parts[2])) return false;
+  if (!safeEqual(parts[3], signPresence(`${PRESENCE_PREFIX}.${parts[1]}.${parts[2]}`))) return false;
+  return Number.parseInt(parts[2], 36) * 1000 >= now.getTime();
+}

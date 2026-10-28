@@ -85,7 +85,7 @@ export function buildGoogleObject(m: CardModel) {
       ...(m.noticeText ? [{ id: "notice", header: "تنبيه", body: m.noticeText }] : []),
     ],
     linksModuleData: {
-      uris: [{ id: "card", uri: m.cardUrl, description: "بطاقتي، سجل الحركات ورمز الاستبدال" }],
+      uris: [{ id: "card", uri: m.cardUrl, description: "بطاقتي وسجل الحركات" }],
     },
     // إشعارات القرب: الجوال يتحقق من المسافة بنفسه، والتطبيق لا يستقبل موقع العميل
     merchantLocations: m.locations.slice(0, 10).map((l) => ({ latitude: l.latitude, longitude: l.longitude })),

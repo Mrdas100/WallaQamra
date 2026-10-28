@@ -6,7 +6,7 @@ import { earnForOrder } from "@/modules/orders";
 const Body = z
   .object({
     customerId: z.string().min(10).max(40),
-    externalRef: z.string().min(1).max(40),
+    externalRef: z.string().min(1).max(40).optional(),
     amount: z.union([z.string().max(12), z.number()]),
     idempotencyKey: z.string().min(8).max(80),
     cups: z.number().int().min(1).max(50).optional(),
@@ -19,7 +19,7 @@ export const POST = route(
     const body = await parseJson(req, Body);
     const r = await earnForOrder(actor, {
       customerId: body.customerId,
-      externalRef: body.externalRef.trim(),
+      externalRef: body.externalRef?.trim() || undefined,
       amountHalalas: parseAmountToHalalas(body.amount),
       idempotencyKey: body.idempotencyKey,
       cups: body.cups,

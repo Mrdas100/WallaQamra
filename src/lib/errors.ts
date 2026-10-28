@@ -9,7 +9,7 @@ export type ErrorCode =
   | "DAILY_CAP"
   | "COOLDOWN"
   | "LOCKED"
-  | "INVALID_CODE"
+  | "SCAN_REQUIRED"
   | "INSUFFICIENT_BALANCE"
   | "SHIFT_LIMIT"
   | "QR_EXPIRED"
@@ -27,7 +27,7 @@ const STATUS: Record<ErrorCode, number> = {
   DAILY_CAP: 422,
   COOLDOWN: 429,
   LOCKED: 423,
-  INVALID_CODE: 422,
+  SCAN_REQUIRED: 422,
   INSUFFICIENT_BALANCE: 422,
   SHIFT_LIMIT: 422,
   QR_EXPIRED: 422,

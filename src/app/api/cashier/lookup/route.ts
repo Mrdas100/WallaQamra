@@ -4,7 +4,7 @@ import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/modules/business";
 import { cashierView, findByPhone } from "@/modules/customers";
-import { verifyQrToken } from "@/modules/qr";
+import { issuePresenceToken, verifyQrToken } from "@/modules/qr";
 
 const Body = z
   .object({
@@ -36,6 +36,8 @@ export const POST = route(
       customer = await prisma.customer.findUnique({ where: { id: body.customerId! } });
       if (!customer || customer.businessId !== actor.businessId) throw new AppError("NOT_FOUND", "العميل غير موجود");
     }
-    return cashierView(customer, await getSettings(actor.businessId));
+    const view = await cashierView(customer, await getSettings(actor.businessId));
+    // مسح QR من جوال العميل = العميل حاضر، فيُسمح بالاستبدال. البحث بالجوال وحده لا يكفي.
+    return body.qr ? { ...view, presence: issuePresenceToken(customer.id) } : view;
   },
 );

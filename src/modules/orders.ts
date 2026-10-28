@@ -1,5 +1,6 @@
 import type { LedgerEntry, Order } from "@prisma/client";
 import { prisma, lockCustomer, lockKey } from "@/lib/db";
+import { randomToken } from "@/lib/crypto";
 import { AppError } from "@/lib/errors";
 import { startOfLocalDay } from "@/lib/time";
 import type { Actor } from "./actor";
@@ -16,7 +17,8 @@ export const IDEMPOTENCY_RE = /^[A-Za-z0-9_-]{8,80}$/;
 
 export interface EarnInput {
   customerId: string;
-  externalRef: string;
+  /** رقم الطلب من نقطة البيع (اختياري). بدونه يولّد النظام رقماً فريداً. */
+  externalRef?: string;
   amountHalalas: number;
   idempotencyKey: string;
   /** وضع الأختام: عدد الأكواب (افتراضياً 1) */
@@ -34,10 +36,12 @@ export interface EarnResult {
 
 /**
  * إضافة نقاط لطلب. النقاط تُحسب هنا من المبلغ — لا يُقبل أي عدد نقاط من الكاشير.
- * رقم الطلب فريد + مفتاح idempotency: نفس الطلب لا يُحتسب مرتين.
+ * مفتاح idempotency يمنع احتساب نفس العملية مرتين (إعادة الإرسال). رقم الطلب إن أُرسل يبقى فريداً.
  */
 export async function earnForOrder(actor: Actor, input: EarnInput, now = new Date()): Promise<EarnResult> {
-  if (!EXTERNAL_REF_RE.test(input.externalRef)) throw new AppError("BAD_REQUEST", "رقم الطلب غير صالح");
+  const givenRef = input.externalRef;
+  if (givenRef !== undefined && !EXTERNAL_REF_RE.test(givenRef)) throw new AppError("BAD_REQUEST", "رقم الطلب غير صالح");
+  const externalRef = givenRef ?? `A${randomToken(9)}`;
   if (!IDEMPOTENCY_RE.test(input.idempotencyKey)) throw new AppError("BAD_REQUEST", "مفتاح العملية غير صالح");
   if (!Number.isInteger(input.amountHalalas) || input.amountHalalas <= 0) {
     throw new AppError("BAD_REQUEST", "المبلغ غير صالح");
@@ -62,7 +66,7 @@ export async function earnForOrder(actor: Actor, input: EarnInput, now = new Dat
 
   const result = await prisma.$transaction(async (tx) => {
     // قفل رقم الطلب أولاً (يمنع احتساب نفس الطلب لعميلين بالتوازي) ثم قفل العميل
-    await lockKey(tx, `order:${actor.businessId}:${input.externalRef}`);
+    await lockKey(tx, `order:${actor.businessId}:${externalRef}`);
     await lockCustomer(tx, input.customerId);
 
     const byKey = await tx.order.findUnique({
@@ -70,13 +74,13 @@ export async function earnForOrder(actor: Actor, input: EarnInput, now = new Dat
       include: { entries: { where: { type: "EARN" } } },
     });
     if (byKey) {
-      if (byKey.externalRef !== input.externalRef || byKey.customerId !== input.customerId) {
+      if ((givenRef !== undefined && byKey.externalRef !== givenRef) || byKey.customerId !== input.customerId) {
         throw new AppError("CONFLICT", "مفتاح العملية مستخدم لطلب آخر");
       }
       return { order: byKey, entry: byKey.entries[0] ?? null, replayed: true, touched: [] as string[], calc: null };
     }
     const byRef = await tx.order.findUnique({
-      where: { businessId_externalRef: { businessId: actor.businessId, externalRef: input.externalRef } },
+      where: { businessId_externalRef: { businessId: actor.businessId, externalRef } },
     });
     if (byRef) throw new AppError("DUPLICATE_ORDER", "رقم الطلب مسجّل مسبقاً ولا يمكن احتسابه مرة أخرى");
 
@@ -114,7 +118,7 @@ export async function earnForOrder(actor: Actor, input: EarnInput, now = new Dat
       data: {
         businessId: actor.businessId,
         customerId: customer.id,
-        externalRef: input.externalRef,
+        externalRef,
         amountHalalas: input.amountHalalas,
         cups,
         staffId: actor.staffId,
@@ -176,16 +180,27 @@ export async function earnForOrder(actor: Actor, input: EarnInput, now = new Dat
   };
 }
 
-/** المرتجع: يعكس تلقائياً كل النقاط المرتبطة بالطلب (بما فيها مكافآت أول طلب) */
-export async function refundOrder(actor: Actor, input: { externalRef: string; reason?: string }, now = new Date()) {
-  if (!EXTERNAL_REF_RE.test(input.externalRef)) throw new AppError("BAD_REQUEST", "رقم الطلب غير صالح");
+/**
+ * المرتجع: يعكس تلقائياً كل النقاط المرتبطة بالطلب (بما فيها مكافآت أول طلب).
+ * الطلب يُحدَّد بمعرّفه (من آخر طلبات العميل في شاشة الكاشير) أو برقم الطلب.
+ */
+export async function refundOrder(
+  actor: Actor,
+  input: ({ orderId: string; externalRef?: never } | { externalRef: string; orderId?: never }) & { reason?: string },
+  now = new Date(),
+) {
+  if (input.externalRef !== undefined && !EXTERNAL_REF_RE.test(input.externalRef)) {
+    throw new AppError("BAD_REQUEST", "رقم الطلب غير صالح");
+  }
   const settings = await getSettings(actor.businessId);
   const business = await getBusiness(actor.businessId);
   const result = await prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({
-      where: { businessId_externalRef: { businessId: actor.businessId, externalRef: input.externalRef } },
-    });
-    if (!order) throw new AppError("NOT_FOUND", "الطلب غير موجود");
+    const order = input.orderId
+      ? await tx.order.findUnique({ where: { id: input.orderId } })
+      : await tx.order.findUnique({
+          where: { businessId_externalRef: { businessId: actor.businessId, externalRef: input.externalRef! } },
+        });
+    if (!order || order.businessId !== actor.businessId) throw new AppError("NOT_FOUND", "الطلب غير موجود");
     await lockCustomer(tx, order.customerId);
     const fresh = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
     if (fresh.status === "REFUNDED") throw new AppError("CONFLICT", "الطلب مُرجع مسبقاً");
