@@ -115,13 +115,14 @@ export async function customerTier(customerId: string, settings: Settings, now =
 /** ملخص العميل كما يراه الكاشير: الجوال مقنّع ولا يظهر أي رمز تحقق */
 export async function cashierView(customer: Customer, settings: Settings, now = new Date()) {
   const unit = unitForMode(settings.programMode);
-  const [balance, tier, rewards] = await Promise.all([
+  const [balance, tier, rewards, orders] = await Promise.all([
     getBalance(customer.id, unit),
     customerTier(customer.id, settings, now),
     prisma.reward.findMany({
       where: { businessId: customer.businessId, active: true, unit },
       orderBy: [{ sortOrder: "asc" }, { cost: "asc" }],
     }),
+    prisma.order.findMany({ where: { customerId: customer.id }, orderBy: { createdAt: "desc" }, take: 5 }),
   ]);
   return {
     id: customer.id,
@@ -137,6 +138,14 @@ export async function cashierView(customer: Customer, settings: Settings, now = 
       cost: r.cost,
       minTier: r.minTier,
       eligible: balance >= r.cost && tierAtLeast(tier, r.minTier),
+    })),
+    // آخر الطلبات: المرتجع يُختار منها بدل كتابة رقم الطلب
+    recentOrders: orders.map((o) => ({
+      id: o.id,
+      amountHalalas: o.amountHalalas,
+      cups: o.cups,
+      createdAt: o.createdAt.toISOString(),
+      refunded: o.status === "REFUNDED",
     })),
   };
 }

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { earnForOrder } from "@/modules/orders";
-import { issueRedeemCode, redeemReward } from "@/modules/redeem";
+import { redeemReward } from "@/modules/redeem";
+import { issuePresenceToken } from "@/modules/qr";
 import { updateSettings } from "@/modules/admin";
 import { credit, idk, makeBusiness, makeCustomer, makeStaff, uid } from "./helpers";
 
@@ -24,8 +25,7 @@ describe("تنبيهات التلاعب للأدمن", () => {
     const reward = await prisma.reward.create({ data: { businessId: b.id, name: "قهوة", cost: 10 } });
     const { actor } = await makeStaff(b.id);
     for (let i = 0; i < 2; i++) {
-      const { code } = await issueRedeemCode(c.id, b.id);
-      await redeemReward(actor, { customerId: c.id, rewardId: reward.id, code, idempotencyKey: idk() });
+      await redeemReward(actor, { customerId: c.id, rewardId: reward.id, presence: issuePresenceToken(c.id), idempotencyKey: idk() });
     }
     expect(await prisma.fraudAlert.count({ where: { customerId: c.id, type: "CONSECUTIVE_REDEMPTIONS" } })).toBe(1);
   });

@@ -27,7 +27,7 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
   const back: Field[] = [
     {
       key: "card",
-      label: "بطاقتي، سجل الحركات ورمز الاستبدال",
+      label: "بطاقتي وسجل الحركات",
       value: m.cardUrl,
       attributedValue: `<a href="${m.cardUrl}">افتح صفحة البطاقة</a>`,
     },
@@ -42,7 +42,7 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
     {
       key: "terms",
       label: "الشروط",
-      value: "النقاط تُحتسب من قيمة الطلب عند الكاشير. لا تشارك رمز الاستبدال مع أحد. الموظف لن يطلب منك أي رمز إلا عند الاستبدال.",
+      value: "النقاط تُحتسب من قيمة الطلب عند الكاشير. للاستبدال أظهر QR بطاقتك للكاشير. الموظف لن يطلب منك أي رمز أو كلمة مرور.",
     },
   ];
 

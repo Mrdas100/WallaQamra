@@ -277,7 +277,7 @@ export function defaultSlides(): Slide[] {
       kind: "reward",
       enabled: true,
       title: "مكافأتك",
-      body: "عند اكتمال الأختام اضغط «أظهر رمز الاستبدال» وأعطِ الرمز للكاشير.",
+      body: "عند اكتمال الأختام اطلب مكافأتك من الكاشير وأظهر له QR بطاقتك.",
       imageAssetId: null,
       template: null,
     },

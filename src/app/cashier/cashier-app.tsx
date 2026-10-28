@@ -14,6 +14,9 @@ interface CustomerView {
   balance: number;
   tierLabel: string;
   rewards: { id: string; name: string; cost: number; eligible: boolean }[];
+  recentOrders: { id: string; amountHalalas: number; cups: number | null; createdAt: string; refunded: boolean }[];
+  /** يصدر فقط عند فتح العميل بمسح QR من جواله، ويُشترط للاستبدال */
+  presence?: string;
 }
 
 type Msg = { type: "ok" | "error" | "warn"; text: string } | null;
@@ -74,7 +77,9 @@ export default function CashierApp({
   /** إعادة تحميل بيانات العميل بعد كل عملية (الرصيد والمكافآت المتاحة) */
   const reload = async (id: string, text: string) => {
     try {
-      setCustomer(await api<CustomerView>("/api/cashier/lookup", { body: { customerId: id } }));
+      const fresh = await api<CustomerView>("/api/cashier/lookup", { body: { customerId: id } });
+      // إعادة التحميل لا تُصدر توكن حضور جديد، فنحتفظ بالتوكن من مسح QR
+      setCustomer((prev) => ({ ...fresh, presence: prev?.id === id ? prev.presence : undefined }));
     } catch {
       /* يبقى العرض السابق */
     }
@@ -173,10 +178,10 @@ export default function CashierApp({
               onDone={(balance) => reload(customer.id, t.done(balance))}
             />
           )}
+
+          <RefundForm t={t} lang={lang} customer={customer} busy={busy} run={run} onDone={(pts) => reload(customer.id, t.refunded(pts))} />
         </>
       )}
-
-      <RefundForm t={t} busy={busy} run={run} onDone={(pts) => setMsg({ type: "ok", text: t.refunded(pts) })} />
 
       {lang === "bn" && <Guide />}
     </main>
@@ -217,7 +222,6 @@ function Guide() {
 type Run = <T>(fn: () => Promise<T>) => Promise<T | null>;
 
 function EarnForm({ t, customer, busy, run, onDone }: { t: CashierText; customer: CustomerView; busy: boolean; run: Run; onDone: (b: number, p: number) => void }) {
-  const [ref, setRef] = useState("");
   const [amount, setAmount] = useState("");
   const [cups, setCups] = useState(1);
   const [key, setKey] = useState(newKey);
@@ -231,27 +235,20 @@ function EarnForm({ t, customer, busy, run, onDone }: { t: CashierText; customer
           e.preventDefault();
           const r = await run(() =>
             api<{ balance: number; points: number }>("/api/cashier/earn", {
-              body: { customerId: customer.id, externalRef: ref.trim(), amount, idempotencyKey: key, ...(stamps ? { cups } : {}) },
+              body: { customerId: customer.id, amount, idempotencyKey: key, ...(stamps ? { cups } : {}) },
             }),
           );
           if (r) {
             onDone(r.balance, r.points);
-            setRef("");
             setAmount("");
             setCups(1);
             setKey(newKey());
           }
         }}
       >
-        <div className="grid2">
-          <div>
-            <label htmlFor="ref">{t.orderNo}</label>
-            <input id="ref" className="ltr" required maxLength={40} value={ref} onChange={(e) => { setRef(e.target.value); setKey(newKey()); }} />
-          </div>
-          <div>
-            <label htmlFor="amt">{t.amount}</label>
-            <input id="amt" inputMode="decimal" required value={amount} onChange={(e) => { setAmount(e.target.value); setKey(newKey()); }} />
-          </div>
+        <div>
+          <label htmlFor="amt">{t.amount}</label>
+          <input id="amt" inputMode="decimal" required value={amount} onChange={(e) => { setAmount(e.target.value); setKey(newKey()); }} />
         </div>
         {stamps && (
           <div>
@@ -272,23 +269,24 @@ function EarnForm({ t, customer, busy, run, onDone }: { t: CashierText; customer
 
 function RedeemForm({ t, customer, busy, run, onDone }: { t: CashierText; customer: CustomerView; busy: boolean; run: Run; onDone: (b: number) => void }) {
   const [rewardId, setRewardId] = useState("");
-  const [code, setCode] = useState("");
   const [key, setKey] = useState(newKey);
+  const presence = customer.presence;
   const eligible = customer.rewards.filter((r) => r.eligible);
   return (
     <section className="panel">
       <h2>{t.redeemTitle}</h2>
       {eligible.length === 0 ? (
         <p className="muted">{t.noReward}</p>
+      ) : !presence ? (
+        <p className="alert alert-warn">{t.scanToRedeem}</p>
       ) : (
         <form
           className="stack"
           onSubmit={async (e) => {
             e.preventDefault();
             const r = await run(() =>
-              api<{ balance: number }>("/api/cashier/redeem", { body: { customerId: customer.id, rewardId, code, idempotencyKey: key } }),
+              api<{ balance: number }>("/api/cashier/redeem", { body: { customerId: customer.id, rewardId, presence, idempotencyKey: key } }),
             );
-            setCode("");
             setKey(newKey());
             if (r) {
               setRewardId("");
@@ -304,20 +302,6 @@ function RedeemForm({ t, customer, busy, run, onDone }: { t: CashierText; custom
               </option>
             ))}
           </select>
-          <div>
-            <label htmlFor="code">{t.redeemCode}</label>
-            <input
-              id="code"
-              className="ltr"
-              inputMode="numeric"
-              autoComplete="off"
-              required
-              pattern="\d{6}"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            />
-          </div>
           <p className="muted small">{t.redeemHint}</p>
           <button className="btn-gold btn-block" disabled={busy}>{t.redeem}</button>
         </form>
@@ -326,29 +310,44 @@ function RedeemForm({ t, customer, busy, run, onDone }: { t: CashierText; custom
   );
 }
 
-function RefundForm({ t, busy, run, onDone }: { t: CashierText; busy: boolean; run: Run; onDone: (pts: number) => void }) {
-  const [ref, setRef] = useState("");
+function RefundForm({ t, lang, customer, busy, run, onDone }: { t: CashierText; lang: Lang; customer: CustomerView; busy: boolean; run: Run; onDone: (pts: number) => void }) {
+  const [orderId, setOrderId] = useState("");
   const [reason, setReason] = useState("");
+  const orders = customer.recentOrders.filter((o) => !o.refunded);
+  const fmt = new Intl.DateTimeFormat(lang === "bn" ? "bn-BD" : "ar-SA", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Riyadh" });
+  const label = (o: CustomerView["recentOrders"][number]) =>
+    [`${(o.amountHalalas / 100).toFixed(2)} ${t.sar}`, o.cups ? t.cupsShort(o.cups) : null, fmt.format(new Date(o.createdAt))].filter(Boolean).join(" · ");
   return (
     <details className="panel">
       <summary>{t.refundTitle}</summary>
-      <form
-        className="stack"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!confirm(t.refundConfirm(ref))) return;
-          const r = await run(() => api<{ reversedPoints: number }>("/api/cashier/refund", { body: { externalRef: ref.trim(), reason } }));
-          if (r) {
-            onDone(r.reversedPoints);
-            setRef("");
-            setReason("");
-          }
-        }}
-      >
-        <input className="ltr" placeholder={t.orderNo} required value={ref} onChange={(e) => setRef(e.target.value)} aria-label={t.orderNo} />
-        <input placeholder={t.reasonOptional} value={reason} onChange={(e) => setReason(e.target.value)} aria-label={t.reason} />
-        <button className="btn-danger btn-block" disabled={busy}>{t.doRefund}</button>
-      </form>
+      {orders.length === 0 ? (
+        <p className="muted">{t.noOrders}</p>
+      ) : (
+        <form
+          className="stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const order = orders.find((o) => o.id === orderId);
+            if (!order || !confirm(t.refundConfirm(label(order)))) return;
+            const r = await run(() => api<{ reversedPoints: number }>("/api/cashier/refund", { body: { orderId, reason } }));
+            if (r) {
+              onDone(r.reversedPoints);
+              setOrderId("");
+              setReason("");
+            }
+          }}
+        >
+          <p className="muted small">{t.refundHint}</p>
+          <select required value={orderId} onChange={(e) => setOrderId(e.target.value)} aria-label={t.refundTitle}>
+            <option value="">{t.refundTitle}</option>
+            {orders.map((o) => (
+              <option key={o.id} value={o.id}>{label(o)}</option>
+            ))}
+          </select>
+          <input placeholder={t.reasonOptional} value={reason} onChange={(e) => setReason(e.target.value)} aria-label={t.reason} />
+          <button className="btn-danger btn-block" disabled={busy}>{t.doRefund}</button>
+        </form>
+      )}
     </details>
   );
 }

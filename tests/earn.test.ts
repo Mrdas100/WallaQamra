@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { getBalance } from "@/modules/ledger";
-import { earnForOrder, refundOrder } from "@/modules/orders";
+import { EXTERNAL_REF_RE, earnForOrder, refundOrder } from "@/modules/orders";
+import { cashierView } from "@/modules/customers";
 import { POST as earnRoute } from "@/app/api/cashier/earn/route";
 import { POST as refundRoute } from "@/app/api/cashier/refund/route";
 import { apiRequest, idk, json, makeBusiness, makeCustomer, makeStaff, uid } from "./helpers";
@@ -148,7 +149,61 @@ describe("إضافة النقاط للطلبات", () => {
   });
 });
 
+describe("بدون رقم طلب", () => {
+  it("الكاشير يضيف بالمبلغ فقط والنظام يولّد رقم طلب فريد", async () => {
+    const b = await makeBusiness();
+    const c = await makeCustomer(b.id);
+    const { token } = await makeStaff(b.id);
+    const send = () =>
+      earnRoute(apiRequest("POST", "/api/cashier/earn", { token, body: { customerId: c.id, amount: "10", idempotencyKey: idk() } }));
+    const first = await send();
+    expect(first.status).toBe(200);
+    const orders = await prisma.order.findMany({ where: { customerId: c.id } });
+    expect(orders).toHaveLength(1);
+    expect(orders[0].externalRef).toMatch(EXTERNAL_REF_RE);
+    expect(await getBalance(c.id, "POINT")).toBe(10);
+  });
+
+  it("إعادة الإرسال بنفس المفتاح (حتى بالتوازي) لا تحتسب مرتين", async () => {
+    const b = await makeBusiness();
+    const c = await makeCustomer(b.id);
+    const { actor } = await makeStaff(b.id);
+    const input = { customerId: c.id, amountHalalas: 2000, idempotencyKey: idk() };
+    const first = await earnForOrder(actor, input);
+    const again = await earnForOrder(actor, input);
+    expect(again.replayed).toBe(true);
+    expect(again.order.id).toBe(first.order.id);
+    await Promise.allSettled(Array.from({ length: 3 }, () => earnForOrder(actor, input)));
+    expect(await prisma.order.count({ where: { customerId: c.id } })).toBe(1);
+    expect(await getBalance(c.id, "POINT")).toBe(20);
+  });
+});
+
 describe("المرتجع", () => {
+  it("المرتجع باختيار الطلب من آخر طلبات العميل", async () => {
+    const b = await makeBusiness();
+    const c = await makeCustomer(b.id);
+    const { actor, token } = await makeStaff(b.id);
+    const { order } = await earnForOrder(actor, { customerId: c.id, amountHalalas: 3000, idempotencyKey: idk() });
+    const view = await cashierView(c, await prisma.settings.findUniqueOrThrow({ where: { businessId: b.id } }));
+    expect(view.recentOrders.map((o) => o.id)).toEqual([order.id]);
+    const res = await refundRoute(apiRequest("POST", "/api/cashier/refund", { token, body: { orderId: order.id } }));
+    expect(res.status).toBe(200);
+    expect(await getBalance(c.id, "POINT")).toBe(0);
+    await expect(refundOrder(actor, { orderId: order.id })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  it("لا يمكن إرجاع طلب محل آخر بمعرّفه", async () => {
+    const b1 = await makeBusiness();
+    const b2 = await makeBusiness();
+    const c = await makeCustomer(b1.id);
+    const s1 = await makeStaff(b1.id);
+    const s2 = await makeStaff(b2.id);
+    const { order } = await earnForOrder(s1.actor, { customerId: c.id, amountHalalas: 1000, idempotencyKey: idk() });
+    await expect(refundOrder(s2.actor, { orderId: order.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await getBalance(c.id, "POINT")).toBe(10);
+  });
+
   it("المرتجع يعكس النقاط تلقائياً ولا يتكرر", async () => {
     const b = await makeBusiness();
     const c = await makeCustomer(b.id);

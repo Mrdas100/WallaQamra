@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "@/ui/api";
 import { MONTHS } from "@/ui/labels";
 
@@ -15,33 +15,9 @@ interface Props {
 
 export default function CardClient({ id, cardKey, promoOptOut, hasBirthday, referralUrl, referralCode }: Props) {
   const headers = { "x-card-key": cardKey };
-    const [code, setCode] = useState<{ code: string; expiresAt: number } | null>(null);
-  const [left, setLeft] = useState(0);
   const [optOut, setOptOut] = useState(promoOptOut);
   const [bday, setBday] = useState({ m: "", d: "", saved: hasBirthday });
   const [msg, setMsg] = useState<{ type: "ok" | "error"; text: string } | null>(null);
-
-  useEffect(() => {
-    if (!code) return;
-    const t = setInterval(() => {
-      const s = Math.max(0, Math.round((code.expiresAt - Date.now()) / 1000));
-      setLeft(s);
-      if (s === 0) setCode(null);
-    }, 500);
-    return () => clearInterval(t);
-  }, [code]);
-
-  async function newCode() {
-    setMsg(null);
-    try {
-      const r = await api<{ code: string; expiresAt: string }>(`/api/card/${id}/redeem-code`, { method: "POST", headers });
-      const expiresAt = Date.parse(r.expiresAt);
-      setLeft(Math.max(0, Math.round((expiresAt - Date.now()) / 1000)));
-      setCode({ code: r.code, expiresAt });
-    } catch (e) {
-      setMsg({ type: "error", text: (e as Error).message });
-    }
-  }
 
   async function savePrefs(body: Record<string, unknown>) {
     setMsg(null);
@@ -59,19 +35,7 @@ export default function CardClient({ id, cardKey, promoOptOut, hasBirthday, refe
     <>
       <section className="panel stack">
         <h2>استبدال مكافأة</h2>
-        {code ? (
-          <>
-            <div className="code" aria-live="polite">{code.code}</div>
-            <p className="muted small">أعطِ هذا الرمز للكاشير الآن. ينتهي خلال {left} ثانية ويُستخدم مرة واحدة.</p>
-          </>
-        ) : (
-          <>
-            <p className="muted small">اطلب الرمز فقط وأنت أمام الكاشير وتريد الاستبدال.</p>
-            <button className="btn-gold btn-block" onClick={newCode}>
-              أظهر رمز الاستبدال
-            </button>
-          </>
-        )}
+        <p className="muted small">عند اكتمال أختامك أظهر QR بطاقتك للكاشير واطلب مكافأتك.</p>
       </section>
 
       <section className="panel stack">
