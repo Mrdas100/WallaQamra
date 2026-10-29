@@ -60,7 +60,8 @@ export function buildApplePassJson(m: CardModel): Record<string, unknown> {
     serialNumber: m.serial,
     organizationName: m.businessName,
     description: `بطاقة ولاء ${m.businessName}`,
-    logoText: m.businessName,
+    // قالب صف الأكواب: الشعار المكتوب يغني عن اسم المحل بجانبه
+    ...(m.design.layout === "cups" ? {} : { logoText: m.businessName }),
     // ألوان القالب المنشور من «تصميم بطاقة الولاء»
     ...passColors(m.design),
     webServiceURL: `${env.appUrl}${APPLE_WEB_SERVICE_PATH}`,

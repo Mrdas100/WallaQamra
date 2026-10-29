@@ -132,7 +132,7 @@
 /* تخطيط: صف أكواب (أكواب سفري متعرّجة بلا خانات، والعداد في الأعلى) */
 [data-layout="cups"] .qc-slide { background: linear-gradient(180deg, var(--qc-bg), var(--qc-bg2)); box-shadow: 0 1px 0 rgba(255, 255, 255, .55) inset, 0 16px 34px -20px rgba(58, 30, 20, .45); }
 [data-layout="cups"] .qc-head { padding-inline-end: 76px; }
-[data-layout="cups"] .qc-logo { background: none; }
+.qc-wordmark { display: block; width: 150px; max-width: 60%; aspect-ratio: 960 / 309; background: var(--qc-text); -webkit-mask: url(/brand/qamra-wordmark.png) center / contain no-repeat; mask: url(/brand/qamra-wordmark.png) center / contain no-repeat; }
 [data-layout="cups"] .qc-tally { position: absolute; top: 20px; inset-inline-end: 18px; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
 [data-layout="cups"] .qc-tally span { font-size: 12px; font-weight: 700; color: var(--qc-muted); }
 [data-layout="cups"] .qc-tally b { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; direction: ltr; }
@@ -312,6 +312,8 @@ input[type="range"] { min-height: 32px; padding: 0; accent-color: var(--brand); 
 .de-slide.is-off { opacity: .6; }
 
 .de-preview { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 12px; }
+/* على الجوال المعاينة فوق الإعدادات وتتحرك مع الصفحة، حتى لا تغطي القوالب والأزرار تحتها */
+@media (max-width: 920px) { .de-preview { position: static; } }
 .de-phone { position: relative; width: 100%; max-width: 380px; margin: 0 auto; padding: 14px 12px 18px; border-radius: 46px; background: #121012; box-shadow: 0 0 0 2px #2c2a2c, 0 30px 60px -25px rgba(0, 0, 0, .55); }
 .de-notch { width: 110px; height: 26px; margin: 0 auto 10px; border-radius: 99px; background: #000; }
 .de-screen { --bg: #f6efe4; max-height: 720px; overflow-y: auto; padding: 12px; border-radius: 34px; background: var(--bg); scrollbar-width: none; }

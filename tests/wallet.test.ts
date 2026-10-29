@@ -296,6 +296,16 @@ describe("بطاقة الأختام في المحافظ", () => {
     expect(svg.split(b64("filled")).length - 1).toBe(2);
     expect(svg.split(b64("empty")).length - 1).toBe(6);
     expect(svg.split(b64("reward")).length - 1).toBe(1);
+
+    // شعار شاهي قمرا المكتوب بدل اسم المحل في Apple
+    const sharp = (await import("sharp")).default;
+    const { renderLogo } = await import("@/modules/wallet/art");
+    const meta = await sharp((await renderLogo(applyTemplate("cups"), 2))!).metadata();
+    expect(meta.width! <= 320 && meta.height! <= 100 && meta.width! > meta.height!).toBe(true);
+    const b = await makeBusiness({ programMode: "STAMPS", stampsPerReward: 5 });
+    const pass = await ensurePass(await makeCustomer(b.id), "APPLE");
+    const m = { ...(await buildCardModel(pass)), design: applyTemplate("cups") };
+    expect((buildApplePassJson(m) as Record<string, unknown>).logoText).toBeUndefined();
   });
 
   it("كل صور الشريط موجودة لكل عدد أكواب مدعوم", async () => {

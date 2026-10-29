@@ -229,6 +229,7 @@ export function renderStrip(d: Design, goal: number, filled: number, scale: 1 | 
 
 /** شعار البطاقة من الشعار المرفوع (Apple: حتى 160×50 نقطة)، أو null إن لم يُرفع شعار */
 export async function renderLogo(d: Design, scale: 1 | 2 | 3): Promise<Buffer | null> {
+  if (d.layout === "cups") return renderWordmark(d.colors.text, scale);
   const id = d.logoAssetId;
   if (!id) return null;
   return cached(`logo:${id}:${scale}`, async () => {
@@ -236,6 +237,20 @@ export async function renderLogo(d: Design, scale: 1 | 2 | 3): Promise<Buffer | 
     if (!a) throw new Error("logo asset missing");
     return (await sharp())(Buffer.from(a.data))
       .resize(160 * scale, 50 * scale, { fit: "inside", withoutEnlargement: false })
+      .png()
+      .toBuffer();
+  }).catch(() => null);
+}
+
+/** شعار شاهي قمرا المكتوب (public/brand، أبيض شفاف) بلون نص القالب: قالب صف الأكواب يعرضه بدل الأيقونة واسم المحل */
+export function renderWordmark(color: string, scale: 1 | 2 | 3): Promise<Buffer | null> {
+  return cached(`wordmark:${color}:${scale}`, async () => {
+    const s = await sharp();
+    const src = await readFile(path.join(process.cwd(), "public", "brand", "qamra-wordmark.png"));
+    const alpha = await s(src).resize(160 * scale, 50 * scale, { fit: "inside" }).extractChannel("alpha").raw().toBuffer({ resolveWithObject: true });
+    const { width, height } = alpha.info;
+    return s({ create: { width, height, channels: 3, background: color } })
+      .joinChannel(alpha.data, { raw: { width, height, channels: 1 } })
       .png()
       .toBuffer();
   }).catch(() => null);

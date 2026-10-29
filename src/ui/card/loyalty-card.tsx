@@ -157,6 +157,15 @@ function slideName(s: Slide, i: number): string {
 }
 
 function Brand({ design, data }: { design: Design; data: CardData }) {
+  // قالب صف الأكواب: شعار شاهي قمرا المكتوب بدل الأيقونة والعنوان، بلون نص القالب
+  if (design.layout === "cups") {
+    return (
+      <header className="qc-head">
+        <span className="qc-wordmark" role="img" aria-label={design.texts.title} />
+        {data.tierLabel && <span className="qc-chip">{data.tierLabel}</span>}
+      </header>
+    );
+  }
   return (
     <header className="qc-head">
       <img className="qc-logo" src={design.logoAssetId ? `/media/${design.logoAssetId}` : "/icon-192.png"} alt="" />
