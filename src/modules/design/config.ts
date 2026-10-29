@@ -3,11 +3,11 @@ import { z } from "zod";
 // إعدادات تصميم بطاقة الولاء. الملف مشترك بين السيرفر والمتصفح (بدون أي استيراد خاص بالسيرفر).
 // كل القيم التي تصل إلى CSS تمر من هنا: ألوان HEX فقط وأرقام محدودة، فلا يمكن حقن CSS.
 
-export const TEMPLATE_IDS = ["royal", "classic", "night", "nature", "glass", "minimal"] as const;
-export const LAYOUTS = ["framed", "ticket", "arc", "grid", "glass", "minimal"] as const;
+export const TEMPLATE_IDS = ["royal", "classic", "night", "nature", "glass", "minimal", "cups"] as const;
+export const LAYOUTS = ["framed", "ticket", "arc", "grid", "glass", "minimal", "cups"] as const;
 export const DECORS = ["ornament", "perforation", "crescent", "leaves", "blobs", "none"] as const;
 export const FONTS = ["plex", "tajawal", "kufi", "amiri"] as const;
-export const STAMP_STYLES = ["photo", "3d", "flat", "line", "crescent", "star", "seal", "custom"] as const;
+export const STAMP_STYLES = ["photo", "3d", "flat", "line", "crescent", "star", "seal", "takeaway", "custom"] as const;
 export const STAMP_SHAPES = ["circle", "rounded", "square", "none"] as const;
 export const SLIDE_KINDS = ["stamps", "reward", "offer", "custom"] as const;
 export const COLOR_KEYS = ["bg", "bg2", "text", "muted", "accent", "stampFill", "stampEmpty", "border"] as const;
@@ -96,6 +96,7 @@ export const TEMPLATE_LABELS: Record<TemplateId, { name: string; hint: string }>
   nature: { name: "Qamra Nature", hint: "أخضر هادئ بلمسات أوراق" },
   glass: { name: "Qamra Glass", hint: "زجاجي شفاف فوق ألوان متدرجة" },
   minimal: { name: "Qamra Minimal", hint: "أبيض نظيف وعداد كبير" },
+  cups: { name: "Qamra Cups", hint: "بيج هادئ وصف أكواب سفري: كوب قمرا لكل ختم" },
 };
 
 export const LAYOUT_LABELS: Record<Layout, string> = {
@@ -105,6 +106,7 @@ export const LAYOUT_LABELS: Record<Layout, string> = {
   grid: "شبكة",
   glass: "زجاجي",
   minimal: "بسيط بعداد",
+  cups: "صف أكواب",
 };
 export const DECOR_LABELS: Record<Decor, string> = {
   ornament: "زخرفة ذهبية",
@@ -128,6 +130,7 @@ export const STAMP_STYLE_LABELS: Record<StampStyle, string> = {
   crescent: "هلال",
   star: "نجمة ثمانية",
   seal: "ختم دائري",
+  takeaway: "كوب سفري قمرا (PNG)",
   custom: "صوري المرفوعة",
 };
 export const SHAPE_LABELS: Record<(typeof STAMP_SHAPES)[number], string> = {
@@ -258,6 +261,23 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
       border: "#e8e3dd",
     },
     stamp: { style: "line", shape: "none", size: 48, gap: 6 },
+  },
+  cups: {
+    layout: "cups",
+    decor: "none",
+    font: "plex",
+    radius: 18,
+    colors: {
+      bg: "#ebe2d0",
+      bg2: "#e4d8c2",
+      text: "#3b1520",
+      muted: "#6d4b40",
+      accent: "#5c1a28",
+      stampFill: "#5c1a28",
+      stampEmpty: "#ffffff",
+      border: "#d3c3a6",
+    },
+    stamp: { style: "takeaway", shape: "none", size: 52, gap: 4 },
   },
 };
 

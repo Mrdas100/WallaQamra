@@ -286,6 +286,18 @@ describe("بطاقة الأختام في المحافظ", () => {
     }
   });
 
+  it("قالب صف الأكواب: صف واحد بلا خانات، كوب قمرا لكل ختم وكوب أبيض للفارغ", async () => {
+    const { stripSvg } = await import("@/modules/wallet/art");
+    const svg = await stripSvg(applyTemplate("cups"), 8, 2, 1);
+    expect(svg.match(/<image /g)).toHaveLength(9);
+    expect(svg).not.toMatch(/<circle /);
+    const { readFileSync } = await import("node:fs");
+    const b64 = (n: string) => readFileSync(`public/library/takeaway-${n}.png`).toString("base64");
+    expect(svg.split(b64("filled")).length - 1).toBe(2);
+    expect(svg.split(b64("empty")).length - 1).toBe(6);
+    expect(svg.split(b64("reward")).length - 1).toBe(1);
+  });
+
   it("كل صور الشريط موجودة لكل عدد أكواب مدعوم", async () => {
     const { existsSync } = await import("node:fs");
     const { stampStripFile } = await import("@/modules/wallet/stamps");

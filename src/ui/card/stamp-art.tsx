@@ -146,6 +146,7 @@ function Sparkle({ x, y, r }: { x: number; y: number; r: number }) {
 /** رابط صورة حالة ختم (للأنواع المعتمدة على صور) أو null للأنواع المتجهية */
 export function stampImageSrc(design: Design, state: StampState): string | null {
   if (design.stamp.style === "photo") return `/library/photo-${state}.png`;
+  if (design.stamp.style === "takeaway") return `/library/takeaway-${state}.png`;
   if (design.stamp.style === "custom") {
     const id = design.stamp.custom[state];
     return id ? `/media/${id}` : `/library/photo-${state}.png`;
@@ -156,7 +157,7 @@ export function stampImageSrc(design: Design, state: StampState): string | null 
 export function StampArt({ style, state, uid, design }: { style: StampStyle; state: StampState; uid: string; design: Design }) {
   const src = stampImageSrc({ ...design, stamp: { ...design.stamp, style } }, state);
   if (src) {
-    return <img src={src} alt="" draggable={false} className={state === "empty" && style !== "custom" ? "qc-img-empty" : undefined} />;
+    return <img src={src} alt="" draggable={false} className={state === "empty" && style === "photo" ? "qc-img-empty" : undefined} />;
   }
   switch (style) {
     case "3d":

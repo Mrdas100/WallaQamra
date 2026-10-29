@@ -49,8 +49,8 @@ async function sharp() {
 
 const dataUri = (mime: string, b: Buffer) => `data:${mime};base64,${b.toString("base64")}`;
 
-async function libraryImage(state: StampState): Promise<string> {
-  const b = await readFile(path.join(process.cwd(), "public", "library", `photo-${state}.png`));
+async function libraryImage(state: StampState, set: "photo" | "takeaway" = "photo"): Promise<string> {
+  const b = await readFile(path.join(process.cwd(), "public", "library", `${set}-${state}.png`));
   return dataUri("image/png", b);
 }
 
@@ -103,7 +103,11 @@ function vectorStamp(d: Design, state: StampState, uid: string): string {
 async function stampImages(d: Design): Promise<Record<StampState, string> | null> {
   const states: StampState[] = ["empty", "filled", "reward"];
   if (d.stamp.style === "photo") {
-    const imgs = await Promise.all(states.map(libraryImage));
+    const imgs = await Promise.all(states.map((s) => libraryImage(s)));
+    return { empty: imgs[0], filled: imgs[1], reward: imgs[2] };
+  }
+  if (d.stamp.style === "takeaway") {
+    const imgs = await Promise.all(states.map((s) => libraryImage(s, "takeaway")));
     return { empty: imgs[0], filled: imgs[1], reward: imgs[2] };
   }
   if (d.stamp.style === "custom") {
@@ -135,6 +139,20 @@ export async function stripSvg(d: Design, goal: number, filled: number, scale: n
   const H = STRIP_H * scale;
   const c = d.colors;
   const slots = goal + 1;
+  const images = await stampImages(d);
+  const bgImage = await assetImage(d.background.assetId);
+  const frame = (body: string, lines: boolean) => {
+    const line = Math.max(1, scale);
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.bg}"/><stop offset="1" stop-color="${c.bg2}"/></linearGradient></defs>
+<rect width="${W}" height="${H}" fill="url(#bg)"/>
+${bgImage ? `<image href="${bgImage}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" opacity="${d.background.opacity / 100}"/>` : ""}
+${lines ? `<rect y="${H * 0.02}" width="${W}" height="${line}" fill="${c.border}" opacity="0.55"/>\n<rect y="${H * 0.98 - line}" width="${W}" height="${line}" fill="${c.border}" opacity="0.55"/>` : ""}
+${body}
+</svg>`;
+  };
+  if (d.layout === "cups") return frame(cupsRow(d, images, goal, filled, W, H), false);
+
   const rows = slots <= 7 ? 1 : 2;
   const perRow = Math.ceil(slots / rows);
   // هامش أفقي آمن حتى لا يقص الجوال أطراف الأكواب
@@ -143,8 +161,6 @@ export async function stripSvg(d: Design, goal: number, filled: number, scale: n
   const dia = Math.min(H * (rows === 1 ? 0.66 : 0.42), (safe - gap * (perRow - 1)) / perRow);
   const vgap = H * 0.05;
   const ring = Math.max(1.5, dia * 0.035);
-  const images = await stampImages(d);
-  const bgImage = await assetImage(d.background.assetId);
 
   const parts: string[] = [];
   for (let i = 0; i < slots; i++) {
@@ -173,15 +189,34 @@ export async function stripSvg(d: Design, goal: number, filled: number, scale: n
     }
   }
 
-  const line = Math.max(1, scale);
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c.bg}"/><stop offset="1" stop-color="${c.bg2}"/></linearGradient></defs>
-<rect width="${W}" height="${H}" fill="url(#bg)"/>
-${bgImage ? `<image href="${bgImage}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" opacity="${d.background.opacity / 100}"/>` : ""}
-<rect y="${H * 0.02}" width="${W}" height="${line}" fill="${c.border}" opacity="0.55"/>
-<rect y="${H * 0.98 - line}" width="${W}" height="${line}" fill="${c.border}" opacity="0.55"/>
-${parts.join("\n")}
-</svg>`;
+  return frame(parts.join("\n"), true);
+}
+
+/** تخطيط «صف الأكواب»: صف واحد متعرّج بلا خانات، الأكواب المختومة بشعار قمرا والفارغة بيضاء */
+function cupsRow(d: Design, images: Record<StampState, string> | null, goal: number, filled: number, W: number, H: number): string {
+  const slots = goal + 1;
+  const step = (W * 0.92) / slots;
+  // صور الأكواب طولية (4:5)، والرسومات المتجهية مربعة
+  const ratio = images ? 0.8 : 1;
+  const cw = Math.min(step * 1.3, H * 0.62 * ratio);
+  const ch = cw / ratio;
+  const lift = H * 0.09;
+  const items = Array.from({ length: slots }, (_, i) => {
+    const state: StampState = i === goal ? "reward" : i < filled ? "filled" : "empty";
+    const up = i % 2 === 0;
+    const cx = W - (W - step * slots) / 2 - step * (i + 0.5);
+    const cy = H / 2 + (up ? -lift : lift);
+    return { i, state, up, x: cx - cw / 2, y: cy - ch / 2 };
+  });
+  // الأكواب المرتفعة خلف المنخفضة، مثل صف أكواب على طاولة
+  items.sort((a, b) => Number(!a.up) - Number(!b.up));
+  return items
+    .map(({ i, state, x, y }) => {
+      const dim = state === "reward" && filled < goal ? ' opacity="0.55"' : "";
+      if (images) return `<image href="${images[state]}" x="${x}" y="${y}" width="${cw}" height="${ch}" preserveAspectRatio="xMidYMid meet"${dim}/>`;
+      return vectorStamp(d, state, `s${i}`).replace("<svg ", `<svg x="${x}" y="${y}" width="${cw}" height="${ch}"${dim} `);
+    })
+    .join("\n");
 }
 
 /** شريط الأختام PNG حسب التصميم المنشور */
