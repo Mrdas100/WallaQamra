@@ -129,6 +129,27 @@
 [data-layout="minimal"] .qc-grid { gap: max(4px, calc(var(--qc-gap) - 2px)); }
 [data-layout="minimal"] .qc-qrbox { background: var(--qc-bg2); }
 
+/* تخطيط: صف أكواب (أكواب سفري متعرّجة بلا خانات، والعداد في الأعلى) */
+[data-layout="cups"] .qc-slide { background: linear-gradient(180deg, var(--qc-bg), var(--qc-bg2)); box-shadow: 0 1px 0 rgba(255, 255, 255, .55) inset, 0 16px 34px -20px rgba(58, 30, 20, .45); }
+[data-layout="cups"] .qc-head { padding-inline-end: 76px; }
+.qc-wordmark { display: block; width: 150px; max-width: 60%; aspect-ratio: 960 / 309; background: var(--qc-text); -webkit-mask: url(/brand/qamra-wordmark.png) center / contain no-repeat; mask: url(/brand/qamra-wordmark.png) center / contain no-repeat; }
+[data-layout="cups"] .qc-tally { position: absolute; top: 20px; inset-inline-end: 18px; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+[data-layout="cups"] .qc-tally span { font-size: 12px; font-weight: 700; color: var(--qc-muted); }
+[data-layout="cups"] .qc-tally b { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; direction: ltr; }
+[data-layout="cups"] .qc-name { order: 2; font-size: 20px; }
+[data-layout="cups"] .qc-stampwrap { order: 1; }
+[data-layout="cups"] .qc-status { order: 3; }
+[data-layout="cups"] .qc-qrbox { order: 4; flex-direction: column; background: none; padding: 4px 0 0; gap: 6px; }
+[data-layout="cups"] .qc-qr { width: 140px; }
+[data-layout="cups"] .qc-grid { display: flex; justify-content: center; gap: 0; margin: 10px 0 18px; }
+[data-layout="cups"] .qc-stamp { flex: 0 1 calc(100% / var(--qc-n, 9)); max-width: calc(var(--qc-stamp) * 1.1); aspect-ratio: 4 / 5; background: none; box-shadow: none; border-radius: 0; }
+[data-layout="cups"] .qc-stamp:nth-child(even) { translate: 0 16px; z-index: 1; }
+[data-layout="cups"] .qc-stamp > img, [data-layout="cups"] .qc-stamp > svg { width: 128%; height: 100%; max-width: none; margin-inline: -14%; }
+[data-layout="cups"] .qc-stamp.is-reward:not(.is-ready) > img, [data-layout="cups"] .qc-stamp.is-reward:not(.is-ready) > svg { opacity: .55; }
+[data-layout="cups"] .qc-stamp.is-ready { box-shadow: none; }
+[data-layout="cups"] .qc-stamp.is-ready > img { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--qc-accent) 60%, transparent)); }
+[data-layout="cups"] .qc-free { bottom: -12px; }
+
 /* الزخارف */
 .qc-decor { position: absolute; z-index: 0; pointer-events: none; }
 .qc-ornament { inset: 0; }
@@ -291,6 +312,8 @@ input[type="range"] { min-height: 32px; padding: 0; accent-color: var(--brand); 
 .de-slide.is-off { opacity: .6; }
 
 .de-preview { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 12px; }
+/* على الجوال المعاينة فوق الإعدادات وتتحرك مع الصفحة، حتى لا تغطي القوالب والأزرار تحتها */
+@media (max-width: 920px) { .de-preview { position: static; } }
 .de-phone { position: relative; width: 100%; max-width: 380px; margin: 0 auto; padding: 14px 12px 18px; border-radius: 46px; background: #121012; box-shadow: 0 0 0 2px #2c2a2c, 0 30px 60px -25px rgba(0, 0, 0, .55); }
 .de-notch { width: 110px; height: 26px; margin: 0 auto 10px; border-radius: 99px; background: #000; }
 .de-screen { --bg: #f6efe4; max-height: 720px; overflow-y: auto; padding: 12px; border-radius: 34px; background: var(--bg); scrollbar-width: none; }

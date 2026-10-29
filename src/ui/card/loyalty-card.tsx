@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { cssBlock, cssVars, fillText, slideColors, type Design, type Slide } from "@/modules/design/config";
-import { StampArt, type StampState } from "./stamp-art";
+import { StampArt, stampImageSrc, type StampState } from "./stamp-art";
 
 // بطاقة الولاء: مكوّن واحد تستخدمه صفحة العميل ومعاينة لوحة الإدارة والصفحة الرئيسية.
 // كل الألوان والأبعاد تُكتب في <style nonce> واحد (CSP يمنع style="" في الإنتاج).
@@ -34,7 +34,7 @@ const ARC_TO = 172;
 function layoutCss(scope: string, d: Design, slots: number): string {
   const sel = `[data-qc="${scope}"]`;
   const perRow = slots <= 6 ? slots : Math.ceil(slots / 2);
-  let css = `${sel} .qc-grid{grid-template-columns:repeat(${perRow},minmax(0,var(--qc-stamp)))}`;
+  let css = `${sel} .qc-grid{grid-template-columns:repeat(${perRow},minmax(0,var(--qc-stamp)));--qc-n:${Math.max(1, slots)}}`;
   if (d.layout === "arc") {
     for (let i = 0; i < slots; i++) {
       const t = slots === 1 ? 0.5 : i / (slots - 1);
@@ -157,6 +157,15 @@ function slideName(s: Slide, i: number): string {
 }
 
 function Brand({ design, data }: { design: Design; data: CardData }) {
+  // قالب صف الأكواب: شعار شاهي قمرا المكتوب بدل الأيقونة والعنوان، بلون نص القالب
+  if (design.layout === "cups") {
+    return (
+      <header className="qc-head">
+        <span className="qc-wordmark" role="img" aria-label={design.texts.title} />
+        {data.tierLabel && <span className="qc-chip">{data.tierLabel}</span>}
+      </header>
+    );
+  }
   return (
     <header className="qc-head">
       <img className="qc-logo" src={design.logoAssetId ? `/media/${design.logoAssetId}` : "/icon-192.png"} alt="" />
@@ -190,7 +199,15 @@ function StampsFace({ design, data, qr, from, scope }: { design: Design; data: C
               <span>/ {data.goal}</span>
             </div>
           )}
-          <div className={design.layout === "arc" ? "qc-arcwrap" : undefined}>
+          {design.layout === "cups" && (
+            <div className="qc-tally" aria-hidden="true">
+              <span>الأختام</span>
+              <b>
+                {filled}/{data.goal}
+              </b>
+            </div>
+          )}
+          <div className={design.layout === "arc" ? "qc-arcwrap" : "qc-stampwrap"}>
             <ol
               className={design.layout === "arc" ? "qc-arc" : "qc-grid"}
               aria-label={`${filled} من ${data.goal} أختام`}
@@ -262,7 +279,7 @@ function RewardFace({ design, data, slide, scope }: { design: Design; data: Card
         {slide.imageAssetId ? (
           <img src={`/media/${slide.imageAssetId}`} alt="" />
         ) : (
-          <StampArt style={design.stamp.style === "custom" || design.stamp.style === "photo" ? design.stamp.style : "3d"} state="reward" uid={`${scope}rw`} design={design} />
+          <StampArt style={stampImageSrc(design, "reward") ? design.stamp.style : "3d"} state="reward" uid={`${scope}rw`} design={design} />
         )}
       </div>
       <h3 className="qc-h">{slide.title || "مكافأتك"}</h3>

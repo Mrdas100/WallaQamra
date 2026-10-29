@@ -28,7 +28,7 @@ function png(w = 16, h = 16, seed = 0): Buffer {
 }
 
 describe("إعدادات التصميم", () => {
-  it("القوالب الستة صالحة ومختلفة في التخطيط والزخرفة وليس اللون فقط", () => {
+  it("كل القوالب صالحة ومختلفة في التخطيط والزخرفة وليس اللون فقط", () => {
     const layouts = new Set<string>();
     const decors = new Set<string>();
     for (const id of TEMPLATE_IDS) {
@@ -39,7 +39,7 @@ describe("إعدادات التصميم", () => {
       // تباين نص القالب مع خلفيته مقروء (WCAG AA)
       expect(contrast(TEMPLATES[id].colors.text, TEMPLATES[id].colors.bg)).toBeGreaterThanOrEqual(4.5);
     }
-    expect(layouts.size).toBe(6);
+    expect(layouts.size).toBe(TEMPLATE_IDS.length);
     expect(decors.size).toBe(6);
   });
 
